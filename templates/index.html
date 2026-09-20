@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Graphiti.ai - Knowledge Graph Intelligence</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/style.css">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+
+<body class="bg-[#050505] text-gray-100 font-sans overflow-hidden h-screen flex">
+
+    <!-- GLOBAL SIDEBAR -->
+    <nav class="bg-[#09090b] border-r border-gray-800/50 flex flex-col shrink-0 w-16 transition-all duration-300 z-50"
+        id="sidebar">
+        <div class="h-16 flex items-center justify-center border-b border-gray-800/50 relative">
+            <div
+                class="w-8 h-8 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center shadow-lg shadow-blue-500/20 shrink-0">
+                <i data-lucide="network" class="w-5 h-5 text-white"></i>
+            </div>
+            <button id="sidebar-toggle"
+                class="absolute -right-3 top-1/2 -translate-y-1/2 bg-gray-800 border border-gray-700 text-gray-400 hover:text-white rounded-full p-1.5 shadow-md z-50 flex items-center justify-center transition-transform hover:scale-110">
+                <i data-lucide="menu" class="w-3 h-3"></i>
+            </button>
+        </div>
+
+        <div class="flex-1 py-6 flex flex-col gap-1.5 px-3">
+            <button
+                class="sidebar-item active group relative p-3 rounded-lg text-blue-500 bg-white/5 flex items-center gap-3 overflow-hidden whitespace-nowrap"
+                data-view="DASHBOARD" title="Overview">
+                <i data-lucide="layout-dashboard" class="w-5 h-5 shrink-0"></i>
+                <span
+                    class="sidebar-label opacity-0 transition-opacity duration-300 text-sm font-medium">Dashboard</span>
+            </button>
+            <button
+                class="sidebar-item group relative p-3 rounded-lg text-gray-400 hover:text-gray-200 hover:bg-white/5 flex items-center gap-3 overflow-hidden whitespace-nowrap"
+                data-view="PIPELINE" title="Pipeline">
+                <i data-lucide="git-commit" class="w-5 h-5 shrink-0"></i>
+                <span
+                    class="sidebar-label opacity-0 transition-opacity duration-300 text-sm font-medium">Pipeline</span>
+            </button>
+            <button
+                class="sidebar-item group relative p-3 rounded-lg text-gray-400 hover:text-gray-200 hover:bg-white/5 flex items-center gap-3 overflow-hidden whitespace-nowrap"
+                data-view="GRAPH" title="Graph Explorer">
+                <i data-lucide="network" class="w-5 h-5 shrink-0"></i>
+                <span class="sidebar-label opacity-0 transition-opacity duration-300 text-sm font-medium">Graph</span>
+            </button>
+            <button
+                class="sidebar-item group relative p-3 rounded-lg text-gray-400 hover:text-gray-200 hover:bg-white/5 flex items-center gap-3 overflow-hidden whitespace-nowrap"
+                data-view="CHAT" title="Intelligence">
+                <i data-lucide="message-square" class="w-5 h-5 shrink-0"></i>
+                <span
+                    class="sidebar-label opacity-0 transition-opacity duration-300 text-sm font-medium">Assistant</span>
+            </button>
+        </div>
+
+
+    </nav>
+
+    <!-- MAIN CONTENT AREA -->
+    <div class="flex-1 flex overflow-hidden relative">
+
+        <!-- LEFT PANEL: PIPELINE & CONFIG -->
+        <aside
+            class="flex flex-col bg-[#0B0C10] border-r border-gray-800/50 w-[360px] shrink-0 transition-all duration-500"
+            id="left-panel">
+            <div
+                class="h-16 flex items-center justify-between px-6 border-b border-gray-800/50 bg-[#0B0C10]/80 backdrop-blur-sm sticky top-0 z-20">
+                <div class="flex items-center gap-2.5">
+                    <i data-lucide="activity" class="w-5 h-5 text-blue-500"></i>
+                    <h1 class="font-semibold text-sm tracking-wide text-gray-200 uppercase">Command Center</h1>
+                </div>
+                <button
+                    class="view-control p-1.5 text-gray-400 hover:text-white hover:bg-white/10 rounded transition-colors"
+                    data-target="PIPELINE">
+                    <i data-lucide="maximize-2" class="w-4 h-4"></i>
+                </button>
+            </div>
+
+            <div class="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-800">
+                <!-- Config & Input -->
+                <div class="border-b border-gray-800/50 collapsible-section">
+                    <div
+                        class="p-4 flex items-center justify-between cursor-pointer section-header hover:bg-white/5 transition-colors">
+                        <label
+                            class="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-2 cursor-pointer">
+                            <i data-lucide="search" class="w-3 h-3"></i> Configuration
+                        </label>
+                        <div class="section-toggle-icon transition-transform duration-300">
+                            <i data-lucide="chevron-down" class="w-4 h-4 text-gray-500"></i>
+                        </div>
+                    </div>
+
+                    <div class="px-6 pb-6 section-content transition-all duration-300 overflow-hidden">
+                        <label class="text-[10px] text-gray-500 font-medium mb-2 block">Target Topic</label>
+                        <div class="relative mb-4 group">
+                            <input type="text" id="topic-input" value="Zoho Corporation"
+                                class="w-full bg-[#15161C] border border-gray-800 text-sm rounded-xl pl-4 pr-10 py-3 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/20 transition-all text-white placeholder-gray-600 shadow-inner"
+                                placeholder="Enter company or topic...">
+                        </div>
+
+                        <!-- Suggested Topics -->
+                        <div class="flex flex-wrap gap-2 mb-6">
+                            <button
+                                class="suggested-topic px-3 py-1.5 rounded-lg bg-gray-800/50 hover:bg-gray-800 border border-gray-700/50 hover:border-gray-600 text-[10px] font-medium text-gray-400 hover:text-gray-200 transition-all"
+                                data-topic="Zoho Corporation">Zoho</button>
+                            <button
+                                class="suggested-topic px-3 py-1.5 rounded-lg bg-gray-800/50 hover:bg-gray-800 border border-gray-700/50 hover:border-gray-600 text-[10px] font-medium text-gray-400 hover:text-gray-200 transition-all"
+                                data-topic="SpaceX Starship">SpaceX</button>
+                            <button
+                                class="suggested-topic px-3 py-1.5 rounded-lg bg-gray-800/50 hover:bg-gray-800 border border-gray-700/50 hover:border-gray-600 text-[10px] font-medium text-gray-400 hover:text-gray-200 transition-all"
+                                data-topic="Quantum Computing">Quantum</button>
+                            <button
+                                class="suggested-topic px-3 py-1.5 rounded-lg bg-gray-800/50 hover:bg-gray-800 border border-gray-700/50 hover:border-gray-600 text-[10px] font-medium text-gray-400 hover:text-gray-200 transition-all"
+                                data-topic="Generative AI">GenAI</button>
+                        </div>
+
+                        <button id="start-btn"
+                            class="w-full py-3.5 rounded-xl flex items-center justify-center gap-2 font-semibold text-sm transition-all shadow-lg transform active:scale-[0.98] bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white shadow-blue-500/20 hover:shadow-blue-500/30">
+                            <i data-lucide="zap" class="w-4 h-4 fill-current"></i>
+                            Start Extraction Engine
+                        </button>
+                    </div>
+
+                    <!-- Pipeline Visualizer -->
+                    <div class="border-b border-gray-800/50 collapsible-section">
+                        <div
+                            class="p-4 flex items-center justify-between cursor-pointer section-header hover:bg-white/5 transition-colors">
+                            <div class="flex items-center gap-2">
+                                <h3 class="text-xs font-bold text-gray-500 uppercase tracking-wider">Process Status</h3>
+                                <span id="pipeline-status-badge"
+                                    class="hidden text-[10px] px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 animate-pulse">Live</span>
+                            </div>
+                            <div class="section-toggle-icon transition-transform duration-300">
+                                <i data-lucide="chevron-down" class="w-4 h-4 text-gray-500"></i>
+                            </div>
+                        </div>
+
+                        <div class="px-6 pb-6 section-content transition-all duration-300 overflow-hidden">
+
+                            <div class="space-y-4 relative" id="pipeline-steps">
+                                <!-- Vertical Line -->
+                                <div class="absolute left-[1.65rem] top-4 bottom-4 w-0.5 bg-gray-800/50 -z-10"></div>
+
+                                <!-- Steps will be generated by JS -->
+                                <div class="step-item relative flex items-center gap-4 p-3 rounded-xl border border-transparent"
+                                    data-step="SEARCH">
+                                    <div
+                                        class="relative z-10 w-10 h-10 rounded-full flex items-center justify-center border-2 bg-gray-800 border-gray-700 text-gray-500 transition-all duration-500">
+                                        <i data-lucide="globe" class="w-5 h-5"></i>
+                                    </div>
+                                    <div class="flex-1 min-w-0">
+                                        <span class="text-sm font-semibold tracking-tight text-gray-500">Web
+                                            Search</span>
+                                        <div class="h-1 w-full bg-gray-800 rounded-full overflow-hidden mt-1">
+                                            <div class="h-full w-0 bg-blue-500 transition-all duration-1000"></div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="step-item relative flex items-center gap-4 p-3 rounded-xl border border-transparent"
+                                    data-step="SCRAPE">
+                                    <div
+                                        class="relative z-10 w-10 h-10 rounded-full flex items-center justify-center border-2 bg-gray-800 border-gray-700 text-gray-500 transition-all duration-500">
+                                        <i data-lucide="share-2" class="w-5 h-5"></i>
+                                    </div>
+                                    <div class="flex-1 min-w-0">
+                                        <span class="text-sm font-semibold tracking-tight text-gray-500">Content
+                                            Scraping</span>
+                                        <div class="h-1 w-full bg-gray-800 rounded-full overflow-hidden mt-1">
+                                            <div class="h-full w-0 bg-blue-500 transition-all duration-1000"></div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="step-item relative flex items-center gap-4 p-3 rounded-xl border border-transparent"
+                                    data-step="EXTRACT">
+                                    <div
+                                        class="relative z-10 w-10 h-10 rounded-full flex items-center justify-center border-2 bg-gray-800 border-gray-700 text-gray-500 transition-all duration-500">
+                                        <i data-lucide="cpu" class="w-5 h-5"></i>
+                                    </div>
+                                    <div class="flex-1 min-w-0">
+                                        <span class="text-sm font-semibold tracking-tight text-gray-500">Entity
+                                            Extraction</span>
+                                        <div class="h-1 w-full bg-gray-800 rounded-full overflow-hidden mt-1">
+                                            <div class="h-full w-0 bg-blue-500 transition-all duration-1000"></div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="step-item relative flex items-center gap-4 p-3 rounded-xl border border-transparent"
+                                    data-step="INDEX">
+                                    <div
+                                        class="relative z-10 w-10 h-10 rounded-full flex items-center justify-center border-2 bg-gray-800 border-gray-700 text-gray-500 transition-all duration-500">
+                                        <i data-lucide="database" class="w-5 h-5"></i>
+                                    </div>
+                                    <div class="flex-1 min-w-0">
+                                        <span class="text-sm font-semibold tracking-tight text-gray-500">Vector
+                                            Indexing</span>
+                                        <div class="h-1 w-full bg-gray-800 rounded-full overflow-hidden mt-1">
+                                            <div class="h-full w-0 bg-blue-500 transition-all duration-1000"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Export Button -->
+                        <div class="px-6 pb-6">
+                            <button id="export-btn"
+                                class="hidden w-full py-2.5 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white text-xs font-medium transition-colors flex items-center justify-center gap-2 border border-gray-700">
+                                <i data-lucide="download" class="w-3.5 h-3.5"></i> Export JSON
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Logs Footer -->
+                    <div class="border-t border-gray-800/50 bg-[#0B0C10] flex flex-col shrink-0 h-48">
+                        <div
+                            class="w-full flex items-center justify-between px-4 py-2.5 text-[11px] font-mono font-medium text-gray-500 border-b border-gray-800/50">
+                            <span class="flex items-center gap-2"><i data-lucide="terminal" class="w-3.5 h-3.5"></i>
+                                SYSTEM_OUTPUT_STREAM</span>
+                        </div>
+                        <div class="flex-1 bg-[#050505] overflow-y-auto p-3 font-mono text-[10px] space-y-1.5"
+                            id="console-logs">
+                            <div class="h-full flex items-center justify-center text-gray-700 italic font-medium"
+                                id="logs-placeholder">
+                                <span class="flex items-center gap-2 opacity-50"><i data-lucide="terminal"
+                                        class="w-4 h-4"></i>
+                                    System Idle - Awaiting Commands</span>
+                            </div>
+                        </div>
+                    </div>
+        </aside>
+
+        <!-- CENTER PANEL: GRAPH VISUALIZATION -->
+        <main class="flex-1 flex flex-col bg-[#050505] overflow-hidden relative" id="graph-container">
+            <!-- Top Bar -->
+            <div
+                class="h-16 absolute top-0 left-0 right-0 z-10 flex items-center justify-between px-6 pointer-events-none">
+                <div
+                    class="pointer-events-auto bg-[#0B0C10]/80 backdrop-blur-md px-4 py-1.5 rounded-full border border-gray-800/50 shadow-xl mt-4 flex items-center gap-3">
+                    <div class="w-2 h-2 rounded-full bg-gray-600" id="status-dot"></div>
+                    <span class="text-sm font-medium text-gray-200 tracking-tight" id="current-topic">Zoho
+                        Corporation</span>
+                    <span
+                        class="text-[10px] text-gray-500 border-l border-gray-700 pl-3 uppercase tracking-wider hidden"
+                        id="entity-count">0 Entities</span>
+                </div>
+
+                <div
+                    class="pointer-events-auto bg-[#0B0C10]/80 backdrop-blur-md p-1 rounded-lg border border-gray-800/50 shadow-xl mt-4">
+                    <button
+                        class="view-control p-1.5 text-gray-400 hover:text-white hover:bg-white/10 rounded transition-colors"
+                        data-target="GRAPH">
+                        <i data-lucide="maximize-2" class="w-4 h-4"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- D3 Graph SVG -->
+            <div id="d3-graph" class="w-full h-full"></div>
+
+            <!-- Legend -->
+            <div id="graph-legend" class="absolute top-20 left-6 transition-all duration-300 ease-in-out z-20 w-48">
+                <div
+                    class="bg-gray-900/90 backdrop-blur-md border border-gray-800 shadow-2xl rounded-xl overflow-hidden p-4">
+                    <div class="flex items-center justify-between mb-3">
+                        <h4 class="font-bold uppercase tracking-wider text-gray-500 text-[10px] flex items-center gap-2 whitespace-nowrap overflow-hidden transition-all duration-300"
+                            id="legend-title">
+                            <i data-lucide="layers" class="w-3 h-3"></i> Entity Types
+                        </h4>
+                        <button id="toggle-legend"
+                            class="text-gray-400 hover:text-white transition-colors p-1 rounded hover:bg-white/10 shrink-0">
+                            <i data-lucide="chevron-left" class="w-3 h-3"></i>
+                        </button>
+                    </div>
+
+                    <div id="legend-content" class="space-y-2.5 animate-in fade-in slide-in-from-left-2 duration-200">
+                        <div class="flex items-center gap-2.5">
+                            <span class="w-2 h-2 rounded-full bg-blue-400 shadow-[0_0_8px_rgba(96,165,250,0.5)]"></span>
+                            <span class="text-xs text-gray-300 font-medium">Product</span>
+                        </div>
+                        <div class="flex items-center gap-2.5">
+                            <span
+                                class="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.5)]"></span>
+                            <span class="text-xs text-gray-300 font-medium">Feature</span>
+                        </div>
+                        <div class="flex items-center gap-2.5">
+                            <span
+                                class="w-2 h-2 rounded-full bg-purple-400 shadow-[0_0_8px_rgba(192,132,252,0.5)]"></span>
+                            <span class="text-xs text-gray-300 font-medium">Concept</span>
+                        </div>
+                        <div class="flex items-center gap-2.5">
+                            <span
+                                class="w-2 h-2 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.5)]"></span>
+                            <span class="text-xs text-gray-300 font-medium">Company</span>
+                        </div>
+                        <div class="flex items-center gap-2.5">
+                            <span class="w-2 h-2 rounded-full bg-red-400 shadow-[0_0_8px_rgba(248,113,113,0.5)]"></span>
+                            <span class="text-xs text-gray-300 font-medium">Person</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Node Inspector (Hidden by default) -->
+            <div id="node-inspector"
+                class="absolute top-20 right-6 z-20 w-64 hidden animate-in fade-in slide-in-from-right-4 duration-300">
+                <div
+                    class="bg-gray-900/90 backdrop-blur-md border border-gray-800 shadow-2xl rounded-xl overflow-hidden">
+                    <div class="p-4 border-b border-gray-800/50 flex justify-between items-start">
+                        <div>
+                            <h3 class="text-sm font-bold text-white mb-0.5" id="inspector-label">Node Label</h3>
+                            <span
+                                class="text-[10px] uppercase tracking-wider font-medium px-1.5 py-0.5 rounded bg-gray-800 text-gray-400"
+                                id="inspector-type">Type</span>
+                        </div>
+                        <button id="close-inspector" class="text-gray-500 hover:text-white transition-colors">
+                            <i data-lucide="x" class="w-3 h-3"></i>
+                        </button>
+                    </div>
+                    <div class="p-4 space-y-3">
+                        <p class="text-xs text-gray-400 leading-relaxed" id="inspector-details">
+                            Select a node to view its details.
+                        </p>
+                        <div class="pt-2 border-t border-gray-800/50 flex gap-2">
+                            <button id="inspector-expand-btn"
+                                class="flex-1 py-1.5 bg-blue-600/10 hover:bg-blue-600/20 text-blue-400 text-[10px] font-bold uppercase tracking-wide rounded border border-blue-600/20 transition-colors">
+                                Expand
+                            </button>
+                            <button id="inspector-chat-btn"
+                                class="flex-1 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-300 text-[10px] font-bold uppercase tracking-wide rounded border border-gray-700 transition-colors">
+                                Chat
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Zoom Controls -->
+            <div class="absolute bottom-6 right-6 flex flex-col gap-2 z-20">
+                <button id="zoom-in"
+                    class="p-2.5 bg-gray-900/80 backdrop-blur hover:bg-gray-800 text-white rounded-xl shadow-lg border border-gray-800 hover:border-gray-700 transition-all active:scale-95"
+                    title="Zoom In">
+                    <i data-lucide="zoom-in" class="w-5 h-5"></i>
+                </button>
+                <button id="zoom-out"
+                    class="p-2.5 bg-gray-900/80 backdrop-blur hover:bg-gray-800 text-white rounded-xl shadow-lg border border-gray-800 hover:border-gray-700 transition-all active:scale-95"
+                    title="Zoom Out">
+                    <i data-lucide="zoom-out" class="w-5 h-5"></i>
+                </button>
+                <button id="zoom-fit"
+                    class="p-2.5 bg-gray-900/80 backdrop-blur hover:bg-gray-800 text-white rounded-xl shadow-lg border border-gray-800 hover:border-gray-700 transition-all active:scale-95"
+                    title="Fit to Screen">
+                    <i data-lucide="maximize" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <!-- Empty State -->
+            <div id="graph-empty-state"
+                class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                <div
+                    class="z-10 text-center p-8 bg-gray-900/40 backdrop-blur-md rounded-2xl border border-gray-800/50 shadow-2xl max-w-sm mx-4">
+                    <div
+                        class="w-16 h-16 bg-gray-800/50 rounded-2xl flex items-center justify-center mx-auto mb-6 border border-gray-700 shadow-inner">
+                        <i data-lucide="move" class="w-8 h-8 text-gray-400"></i>
+                    </div>
+                    <h3 class="text-xl font-semibold text-gray-200 mb-3 tracking-tight">Graph Canvas Ready</h3>
+                    <p class="text-sm text-gray-500 leading-relaxed">
+                        Initialize the knowledge extraction pipeline from the Command Center to populate this space.
+                    </p>
+                </div>
+            </div>
+        </main>
+
+        <!-- RIGHT PANEL: INTELLIGENCE UNIT -->
+        <aside
+            class="flex flex-col bg-[#0B0C10] border-l border-gray-800/50 w-[400px] shrink-0 transition-all duration-500"
+            id="right-panel">
+            <div
+                class="h-16 flex items-center px-6 border-b border-gray-800/50 bg-[#0B0C10]/80 backdrop-blur-sm sticky top-0 z-20 justify-between">
+                <div class="flex items-center gap-2.5">
+                    <i data-lucide="sparkles" class="w-5 h-5 text-indigo-500 fill-current"></i>
+                    <h2 class="font-semibold text-sm text-gray-200">AI Assistant</h2>
+                </div>
+                <button
+                    class="view-control p-1.5 text-gray-400 hover:text-white hover:bg-white/10 rounded transition-colors"
+                    data-target="CHAT">
+                    <i data-lucide="maximize-2" class="w-4 h-4"></i>
+                </button>
+            </div>
+
+            <!-- Chat History -->
+            <div class="flex-1 overflow-y-auto p-5 space-y-6 bg-[#0B0C10] scrollbar-thin scrollbar-thumb-gray-800"
+                id="chat-history">
+                <div class="h-full flex flex-col items-center justify-center text-center px-8 opacity-60">
+                    <div
+                        class="w-16 h-16 bg-gradient-to-br from-indigo-900/20 to-purple-900/20 rounded-2xl flex items-center justify-center mb-6 border border-indigo-500/20">
+                        <i data-lucide="bot" class="w-8 h-8 text-indigo-400"></i>
+                    </div>
+                    <h4 class="text-base font-bold text-gray-200 mb-2">Knowledge Graph Intelligence</h4>
+                    <p class="text-xs text-gray-500 leading-relaxed max-w-xs mx-auto">
+                        Ask questions to query the structural data, extracted relationships, and entity details directly
+                        from the graph.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Input Area -->
+            <div class="p-5 border-t border-gray-800/50 bg-[#0B0C10]">
+                <div class="relative group">
+                    <input type="text" id="chat-input" placeholder="Waiting for Knowledge Graph..." disabled
+                        class="w-full bg-[#15161C] border border-gray-800 text-gray-200 rounded-xl pl-5 pr-12 py-4 text-sm focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all placeholder-gray-600 shadow-inner">
+                    <button id="send-btn" disabled
+                        class="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-indigo-600/10 hover:bg-indigo-600 text-indigo-500 hover:text-white rounded-lg transition-all disabled:opacity-0 disabled:scale-90">
+                        <i data-lucide="send" class="w-4 h-4"></i>
+                    </button>
+                </div>
+            </div>
+        </aside>
+
+    </div>
+
+    <script src="/static/js/graph.js"></script>
+    <script src="/static/js/main.js"></script>
+    <script>
+        lucide.createIcons();
+    </script>
+</body>
+
+</html>

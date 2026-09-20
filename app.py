@@ -1,0 +1,238 @@
+import os
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
+
+from flask import Flask, request, jsonify, render_template
+from flask_cors import CORS
+from models import db, Session, Node, Link, Log, Message
+from services.gemini_service import generate_knowledge_graph, expand_graph, search_web, answer_question, scrape_urls
+
+import mysql.connector
+from mysql.connector import Error
+
+app = Flask(__name__)
+CORS(app)
+
+# Database Configuration
+# Construct URI from individual env vars to keep ORM working while using user's preferred config method
+db_user = os.getenv('DB_USER')
+db_password = os.getenv('DB_PASSWORD')
+db_host = os.getenv('DB_HOST')
+db_name = os.getenv('DB_NAME')
+
+app.config['SQLALCHEMY_DATABASE_URI'] = f"mysql+mysqlconnector://{db_user}:{db_password}@{db_host}/{db_name}"
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+db.init_app(app)
+
+def create_connection():
+    try:
+        connection = mysql.connector.connect(
+            host=os.getenv('DB_HOST'),
+            database=os.getenv('DB_NAME'),
+            user=os.getenv('DB_USER'),
+            password=os.getenv('DB_PASSWORD')
+        )
+        if connection.is_connected():
+            return connection
+    except Error as e:
+        app.logger.error(f"Error connecting to MySQL database: {str(e)}")
+        return None
+
+with app.app_context():
+    db.create_all()
+
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+@app.route('/api/health', methods=['GET'])
+def health_check():
+    # Use the requested connection method for health check
+    conn = create_connection()
+    status = "healthy" if conn else "unhealthy"
+    if conn:
+        conn.close()
+    return jsonify({"status": status, "database": "mysql"})
+
+@app.route('/api/search', methods=['POST'])
+def search_endpoint():
+    data = request.json
+    topic = data.get('topic')
+    if not topic:
+        return jsonify({"error": "Topic is required"}), 400
+    
+    try:
+        urls = search_web(topic)
+        return jsonify({"urls": urls, "count": len(urls)})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/scrape', methods=['POST'])
+def scrape_endpoint():
+    data = request.json
+    urls = data.get('urls', [])
+    if not urls:
+        return jsonify({"error": "URLs are required"}), 400
+    
+    try:
+        scraped_data = scrape_urls(urls)
+        return jsonify(scraped_data)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/graph/generate', methods=['POST'])
+def generate_graph():
+    data = request.json
+    topic = data.get('topic')
+    context = data.get('context', "")
+    source_urls = data.get('source_urls', [])
+    
+    if not topic:
+        return jsonify({"error": "Topic is required"}), 400
+        
+    try:
+        # Generate Graph with context
+        graph_data = generate_knowledge_graph(topic, context)
+        
+
+        
+        # 3. Save to DB (Simplified: Create new session)
+        session = Session(topic=topic)
+        db.session.add(session)
+        db.session.commit()
+        
+        # Save Nodes
+        for n in graph_data['nodes']:
+            node = Node(
+                id=n['id'],
+                session_id=session.id,
+                label=n['label'],
+                group=n['group'],
+                details=n.get('details'),
+                val=n.get('val')
+            )
+            db.session.add(node)
+            
+        # Save Links
+        for l in graph_data['links']:
+            link = Link(
+                session_id=session.id,
+                source=l['source'],
+                target=l['target'],
+                relation=l['relation']
+            )
+            db.session.add(link)
+            
+        db.session.commit()
+        
+        return jsonify({
+            "session_id": session.id,
+            "graph": graph_data,
+            "sources": source_urls
+        })
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/graph/expand', methods=['POST'])
+def expand_graph_endpoint():
+    data = request.json
+    session_id = data.get('session_id')
+    node_id = data.get('node_id')
+    
+    if not session_id or not node_id:
+        return jsonify({"error": "Session ID and Node ID are required"}), 400
+        
+    try:
+        # Fetch current graph state
+        session = db.session.get(Session, session_id)
+        if not session:
+            return jsonify({"error": "Session not found"}), 404
+            
+        nodes = [{"id": n.id, "label": n.label, "group": n.group} for n in session.nodes]
+        links = [{"source": l.source, "target": l.target, "relation": l.relation} for l in session.links]
+        
+        target_node_obj = Node.query.filter_by(session_id=session_id, id=node_id).first()
+        if not target_node_obj:
+            return jsonify({"error": "Node not found"}), 404
+            
+        target_node_dict = {
+            "id": target_node_obj.id,
+            "label": target_node_obj.label,
+            "group": target_node_obj.group
+        }
+        
+        # Call Gemini Service
+        original_data = {"nodes": nodes, "links": links}
+        new_data = expand_graph(original_data, target_node_dict)
+        
+        # Save new nodes and links
+        for n in new_data['nodes']:
+            # Check if exists
+            exists = Node.query.filter_by(session_id=session_id, id=n['id']).first()
+            if not exists:
+                node = Node(
+                    id=n['id'],
+                    session_id=session.id,
+                    label=n['label'],
+                    group=n['group'],
+                    details=n.get('details'),
+                    val=n.get('val'),
+                    status='new'
+                )
+                db.session.add(node)
+                
+        for l in new_data['links']:
+            link = Link(
+                session_id=session.id,
+                source=l['source'],
+                target=l['target'],
+                relation=l['relation']
+            )
+            db.session.add(link)
+            
+        db.session.commit()
+        
+        return jsonify(new_data)
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/chat', methods=['POST'])
+def chat_endpoint():
+    data = request.json
+    session_id = data.get('session_id')
+    message = data.get('message')
+    
+    if not session_id or not message:
+        return jsonify({"error": "Session ID and Message are required"}), 400
+        
+    try:
+        # Save User Message
+        user_msg = Message(session_id=session_id, role='user', content=message)
+        db.session.add(user_msg)
+        
+        # Get Graph Context
+        session = db.session.get(Session, session_id)
+        nodes = [{"label": n.label, "group": n.group, "details": n.details} for n in session.nodes]
+        links = [{"source": l.source, "target": l.target, "relation": l.relation} for l in session.links]
+        graph_context = {"nodes": nodes, "links": links}
+        
+        # Get Answer
+        answer = answer_question(message, graph_context)
+        
+        # Save Assistant Message
+        ai_msg = Message(session_id=session_id, role='assistant', content=answer)
+        db.session.add(ai_msg)
+        db.session.commit()
+        
+        return jsonify({"response": answer})
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+if __name__ == '__main__':
+    app.run(debug=True, port=5000)
