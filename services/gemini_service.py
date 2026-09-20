@@ -11,7 +11,7 @@ GOOGLE_API_KEY = os.getenv('GEMINI_API_KEY')
 client = genai.Client(api_key=GOOGLE_API_KEY)
 
 def generate_knowledge_graph(topic, context=""):
-    model = "gemini-2.0-flash-exp"
+    model = "gemini-2.5-flash"
     
     prompt = f"""
     Act as a Knowledge Graph extraction engine using the Graphiti library framework.
@@ -95,7 +95,7 @@ def generate_knowledge_graph(topic, context=""):
         raise e
 
 def expand_graph(original_data, target_node):
-    model = "gemini-2.0-flash-exp"
+    model = "gemini-2.5-flash"
     
     prompt = f"""
     Act as a Knowledge Graph expansion engine.
@@ -236,7 +236,7 @@ def search_web(topic):
     return [f"https://en.wikipedia.org/wiki/{topic.replace(' ', '_')}"]
 
 def answer_question(question, graph_context):
-    model = "gemini-2.0-flash-exp"
+    model = "gemini-2.5-flash"
     
     # Create context summary
     nodes = graph_context.get('nodes', [])

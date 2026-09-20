@@ -8,6 +8,7 @@ from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
 from models import db, Session, Node, Link, Log, Message
 from services.gemini_service import generate_knowledge_graph, expand_graph, search_web, answer_question, scrape_urls
+from sqlalchemy import text
 
 import mysql.connector
 from mysql.connector import Error
@@ -22,7 +23,14 @@ db_password = os.getenv('DB_PASSWORD')
 db_host = os.getenv('DB_HOST')
 db_name = os.getenv('DB_NAME')
 
-app.config['SQLALCHEMY_DATABASE_URI'] = f"mysql+mysqlconnector://{db_user}:{db_password}@{db_host}/{db_name}"
+database_url = os.getenv('DATABASE_URL')
+if not database_url:
+    if all((db_user, db_password, db_host, db_name)):
+        database_url = f"mysql+mysqlconnector://{db_user}:{db_password}@{db_host}/{db_name}"
+    else:
+        database_url = 'sqlite:///knowledge_graph.db'
+
+app.config['SQLALCHEMY_DATABASE_URI'] = database_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db.init_app(app)
@@ -50,12 +58,15 @@ def index():
 
 @app.route('/api/health', methods=['GET'])
 def health_check():
-    # Use the requested connection method for health check
-    conn = create_connection()
-    status = "healthy" if conn else "unhealthy"
-    if conn:
-        conn.close()
-    return jsonify({"status": status, "database": "mysql"})
+    try:
+        db.session.execute(text('SELECT 1'))
+        return jsonify({
+            "status": "healthy",
+            "database": db.engine.url.get_backend_name(),
+        })
+    except Exception as e:
+        app.logger.error("Database health check failed: %s", e)
+        return jsonify({"status": "unhealthy", "database": "unavailable"}), 503
 
 @app.route('/api/search', methods=['POST'])
 def search_endpoint():
@@ -68,14 +79,15 @@ def search_endpoint():
         urls = search_web(topic)
         return jsonify({"urls": urls, "count": len(urls)})
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        app.logger.warning("Web search unavailable; continuing with model knowledge: %s", e)
+        return jsonify({"urls": [], "count": 0})
 
 @app.route('/api/scrape', methods=['POST'])
 def scrape_endpoint():
     data = request.json
     urls = data.get('urls', [])
     if not urls:
-        return jsonify({"error": "URLs are required"}), 400
+        return jsonify("")
     
     try:
         scraped_data = scrape_urls(urls)

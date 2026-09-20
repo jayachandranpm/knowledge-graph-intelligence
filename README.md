@@ -22,5 +22,4 @@ cp .env.example .env
 python app.py
 ```
 
-Add your own Gemini key and database settings to `.env`. Local environment files and databases are excluded from this repository.
-
+Add your own Gemini key to `.env`. The app uses a local SQLite database by default; set `DATABASE_URL` or the MySQL fields only when you want an external database. Local environment files and databases are excluded from this repository.
