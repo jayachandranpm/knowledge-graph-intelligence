@@ -24,6 +24,21 @@ class KnowledgeGraph {
 
         this.init();
 
+        // Delegated fallbacks keep nodes interactive if a browser drops an
+        // SVG element-level listener while the force simulation is moving.
+        this.container.addEventListener("click", (event) => {
+            const nodeElement = event.target.closest?.(".node");
+            if (nodeElement?.__data__) {
+                this.handleNodeClick(nodeElement.__data__);
+            }
+        });
+        this.container.addEventListener("dblclick", (event) => {
+            const nodeElement = event.target.closest?.(".node");
+            if (nodeElement?.__data__) {
+                this.handleNodeDoubleClick(nodeElement.__data__);
+            }
+        });
+
         window.addEventListener('resize', () => this.resize());
     }
 

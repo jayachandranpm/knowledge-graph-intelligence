@@ -5,16 +5,11 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from flask import Flask, request, jsonify, render_template
-from flask_cors import CORS
 from models import db, Session, Node, Link, Log, Message
 from services.gemini_service import generate_knowledge_graph, expand_graph, search_web, answer_question, scrape_urls
 from sqlalchemy import text
 
-import mysql.connector
-from mysql.connector import Error
-
 app = Flask(__name__)
-CORS(app)
 
 MAX_TOPIC_LENGTH = 200
 MAX_CONTEXT_LENGTH = 20_000
@@ -22,36 +17,14 @@ MAX_MESSAGE_LENGTH = 4_000
 
 # Database Configuration
 # Construct URI from individual env vars to keep ORM working while using user's preferred config method
-db_user = os.getenv('DB_USER')
-db_password = os.getenv('DB_PASSWORD')
-db_host = os.getenv('DB_HOST')
-db_name = os.getenv('DB_NAME')
-
 database_url = os.getenv('DATABASE_URL')
 if not database_url:
-    if all((db_user, db_password, db_host, db_name)):
-        database_url = f"mysql+mysqlconnector://{db_user}:{db_password}@{db_host}/{db_name}"
-    else:
-        database_url = 'sqlite:///knowledge_graph.db'
+    database_url = 'sqlite:///knowledge_graph.db'
 
 app.config['SQLALCHEMY_DATABASE_URI'] = database_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db.init_app(app)
-
-def create_connection():
-    try:
-        connection = mysql.connector.connect(
-            host=os.getenv('DB_HOST'),
-            database=os.getenv('DB_NAME'),
-            user=os.getenv('DB_USER'),
-            password=os.getenv('DB_PASSWORD')
-        )
-        if connection.is_connected():
-            return connection
-    except Error as e:
-        app.logger.error(f"Error connecting to MySQL database: {str(e)}")
-        return None
 
 with app.app_context():
     db.create_all()

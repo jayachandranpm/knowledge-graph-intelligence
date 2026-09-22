@@ -1,4 +1,6 @@
 document.addEventListener('DOMContentLoaded', () => {
+    document.body.dataset.view = 'DASHBOARD';
+
     // State
     let sessionId = null;
     let graph = new KnowledgeGraph('d3-graph');
@@ -115,7 +117,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // 1. Search Phase
             updatePipelineStep('SEARCH');
-            addLog('DUCKDUCKGO', `Searching web for "${topic}"...`);
+            addLog('WEB', `Searching trusted sources for "${topic}"...`);
 
             const searchResponse = await fetch('/api/search', {
                 method: 'POST',
@@ -127,11 +129,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const searchData = await searchResponse.json();
             const urls = searchData.urls || [];
 
-            addLog('DUCKDUCKGO', `Found ${searchData.count} relevant sources.`, 'success');
+            addLog('WEB', `Found ${searchData.count} relevant sources.`, 'success');
 
             // 2. Scrape Phase
             updatePipelineStep('SCRAPE');
-            addLog('SCRAPY', `Deploying spiders to ${urls.length} targets...`);
+            addLog('PARSER', `Reading ${urls.length} source pages...`);
 
             const scrapeResponse = await fetch('/api/scrape', {
                 method: 'POST',
@@ -142,11 +144,11 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!scrapeResponse.ok) throw new Error("Scraping failed");
             const context = await scrapeResponse.json();
 
-            addLog('SCRAPY', `Content extraction complete. Context length: ${context.length} chars`, 'success');
+            addLog('PARSER', `Content extraction complete. Context length: ${context.length} chars`, 'success');
 
             // 3. Extraction Phase
             updatePipelineStep('EXTRACT');
-            addLog('GRAPHITI', `Initializing Entity Extraction Model (Gemini 2.0 Flash)...`);
+            addLog('GRAPHITI', `Initializing Entity Extraction Model (Gemini 2.5 Flash)...`);
             addLog('GRAPHITI', `Processing unstructured text chunks...`);
 
             // Actual API Call
@@ -202,9 +204,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // 4. Index Phase
             updatePipelineStep('INDEX');
-            addLog('CHROMA', `Generating vector embeddings for ${data.graph.nodes.length} nodes...`);
+            addLog('DATABASE', `Persisting ${data.graph.nodes.length} graph entities...`);
             await new Promise(r => setTimeout(r, 600));
-            addLog('CHROMA', `Indexing complete. Collection ready for RAG.`, 'success');
+            addLog('DATABASE', `Graph persisted and ready for questions.`, 'success');
 
             updatePipelineStep('COMPLETE');
             addLog('SYSTEM', 'Pipeline finished successfully. Knowledge Graph is interactive.', 'success');
@@ -213,6 +215,10 @@ document.addEventListener('DOMContentLoaded', () => {
             emptyState.classList.add('hidden');
             graph.render(data.graph);
             statusDot.className = 'w-2 h-2 rounded-full bg-emerald-500';
+
+            if (window.innerWidth <= 640) {
+                handleViewChange('GRAPH');
+            }
 
             // Enable Chat & Export
             chatInput.disabled = false;
@@ -501,6 +507,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function handleViewChange(view) {
         currentView = view;
+        document.body.dataset.view = view;
 
         // Reset Layout Classes
         leftPanel.className = 'flex flex-col bg-[#0B0C10] border-r border-gray-800/50 shrink-0 transition-all duration-500';

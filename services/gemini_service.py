@@ -1,316 +1,391 @@
-import os
+import ipaddress
 import json
-from google import genai
-from google.genai import types
-import requests
-from bs4 import BeautifulSoup
+import os
+import socket
+from html.parser import HTMLParser
+from urllib.error import HTTPError, URLError
+from urllib.parse import quote, urlencode, urlparse
+from urllib.request import HTTPRedirectHandler, Request, build_opener, urlopen
 
-# Initialize Gemini Client
-# Ensure GEMINI_API_KEY is set in your environment variables
-GOOGLE_API_KEY = os.getenv('GEMINI_API_KEY') or os.getenv('VITE_GEMINI_API_KEY')
-client = genai.Client(api_key=GOOGLE_API_KEY)
+
+MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+GEMINI_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models"
+ALLOWED_GROUPS = {"product", "feature", "concept", "company", "person"}
+
+
+def _gemini_api_key():
+    api_key = os.getenv("GEMINI_API_KEY") or os.getenv("VITE_GEMINI_API_KEY")
+    if not api_key:
+        raise RuntimeError("Gemini API key is not configured")
+    return api_key
+
+
+def _call_gemini(prompt, response_schema=None, use_search=False):
+    payload = {
+        "contents": [{"role": "user", "parts": [{"text": prompt}]}],
+        "generationConfig": {"temperature": 0.25},
+    }
+    if response_schema:
+        payload["generationConfig"].update({
+            "responseMimeType": "application/json",
+            "responseJsonSchema": response_schema,
+        })
+    if use_search:
+        payload["tools"] = [{"google_search": {}}]
+
+    url = (
+        f"{GEMINI_ENDPOINT}/{quote(MODEL, safe='')}:generateContent"
+        f"?key={quote(_gemini_api_key(), safe='')}"
+    )
+    request = Request(
+        url,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "Content-Type": "application/json",
+            "User-Agent": "KnowledgeGraph/1.0",
+        },
+        method="POST",
+    )
+
+    try:
+        with urlopen(request, timeout=105) as response:
+            result = json.loads(response.read().decode("utf-8"))
+    except HTTPError as error:
+        detail = error.read(1000).decode("utf-8", errors="replace")
+        raise RuntimeError(
+            f"Gemini request failed ({error.code}): {detail}"
+        ) from error
+    except (URLError, TimeoutError) as error:
+        raise RuntimeError(
+            f"Gemini request could not be completed: {error}"
+        ) from error
+
+    candidates = result.get("candidates") or []
+    if not candidates:
+        feedback = result.get("promptFeedback", {}).get(
+            "blockReason", "no candidate returned"
+        )
+        raise RuntimeError(f"Gemini returned no response: {feedback}")
+
+    parts = candidates[0].get("content", {}).get("parts", [])
+    text = "".join(part.get("text", "") for part in parts).strip()
+    if not text:
+        raise RuntimeError("Gemini returned an empty response")
+    return text
+
+
+def _graph_schema():
+    return {
+        "type": "object",
+        "properties": {
+            "nodes": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "id": {"type": "string"},
+                        "label": {"type": "string"},
+                        "group": {
+                            "type": "string",
+                            "enum": sorted(ALLOWED_GROUPS),
+                        },
+                        "details": {"type": "string"},
+                        "val": {"type": "number"},
+                    },
+                    "required": ["id", "label", "group", "val"],
+                },
+            },
+            "links": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "source": {"type": "string"},
+                        "target": {"type": "string"},
+                        "relation": {"type": "string"},
+                    },
+                    "required": ["source", "target", "relation"],
+                },
+            },
+        },
+        "required": ["nodes", "links"],
+    }
+
+
+def _normalize_graph(data):
+    nodes = []
+    node_ids = set()
+    for raw in data.get("nodes", []):
+        node_id = str(raw.get("id", "")).strip()[:255]
+        label = str(raw.get("label", "")).strip()[:255]
+        if not node_id or not label or node_id in node_ids:
+            continue
+        group = str(raw.get("group", "concept")).lower()
+        if group not in ALLOWED_GROUPS:
+            group = "concept"
+        try:
+            value = max(1, min(10, int(float(raw.get("val", 5)))))
+        except (TypeError, ValueError):
+            value = 5
+        nodes.append({
+            "id": node_id,
+            "label": label,
+            "group": group,
+            "details": str(raw.get("details", "")).strip()[:2000],
+            "val": value,
+        })
+        node_ids.add(node_id)
+
+    links = []
+    seen_links = set()
+    for raw in data.get("links", []):
+        source = str(raw.get("source", "")).strip()[:255]
+        target = str(raw.get("target", "")).strip()[:255]
+        relation = (
+            str(raw.get("relation", "related_to")).strip()[:255]
+            or "related_to"
+        )
+        key = (source, target, relation)
+        if (
+            source in node_ids
+            and target in node_ids
+            and source != target
+            and key not in seen_links
+        ):
+            links.append({
+                "source": source,
+                "target": target,
+                "relation": relation,
+            })
+            seen_links.add(key)
+
+    if len(nodes) < 2:
+        raise RuntimeError("The model did not return enough valid graph nodes")
+    return {"nodes": nodes, "links": links}
+
 
 def generate_knowledge_graph(topic, context=""):
-    model = "gemini-2.5-flash"
-    
     prompt = f"""
-    Act as a Knowledge Graph extraction engine using the Graphiti library framework.
-    
-    Topic: {topic}
-    Source Context: {context if context else "No external context provided. Use internal knowledge."}
-    
-    Task: Create a detailed, comprehensive knowledge graph about the topic "{topic}".
-    The graph should focus on the ecosystem, products, key features, pricing models, competitors, and key concepts.
-    
-    Requirements:
-    - Generate at least 25-30 nodes.
-    - Generate at least 30-40 relationships (links).
-    - Nodes must have a 'group' property: 'product', 'feature', 'concept', 'company', or 'person'.
-    - Links must have a 'relation' property describing the edge (e.g., "includes", "integrates_with", "founded_by").
-    - Ensure the JSON is strictly valid.
-    """
-    
-    try:
-        response = client.models.generate_content(
-            model=model,
-            contents=prompt,
-            config={
-                "response_mime_type": "application/json",
-                "response_schema": {
-                    "type": types.Type.OBJECT,
-                    "properties": {
-                        "nodes": {
-                            "type": types.Type.ARRAY,
-                            "items": {
-                                "type": types.Type.OBJECT,
-                                "properties": {
-                                    "id": {"type": types.Type.STRING},
-                                    "label": {"type": types.Type.STRING},
-                                    "group": {"type": types.Type.STRING, "enum": ['product', 'feature', 'concept', 'company', 'person']},
-                                    "details": {"type": types.Type.STRING},
-                                    "val": {"type": types.Type.NUMBER, "description": "Importance value 1-10"}
-                                },
-                                "required": ["id", "label", "group", "val"]
-                            }
-                        },
-                        "links": {
-                            "type": types.Type.ARRAY,
-                            "items": {
-                                "type": types.Type.OBJECT,
-                                "properties": {
-                                    "source": {"type": types.Type.STRING},
-                                    "target": {"type": types.Type.STRING},
-                                    "relation": {"type": types.Type.STRING}
-                                },
-                                "required": ["source", "target", "relation"]
-                            }
-                        }
-                    }
-                }
-            }
-        )
-        
-        if not response.text:
-            raise Exception("No data returned from Gemini")
-            
-        data = json.loads(response.text)
-        
-        # Cleanup and Validation
-        nodes = data.get('nodes', [])
-        links = data.get('links', [])
-        
-        node_ids = set(n['id'] for n in nodes)
-        valid_links = []
-        
-        for link in links:
-            if link['source'] in node_ids and link['target'] in node_ids:
-                valid_links.append(link)
-            else:
-                print(f"Pruning invalid link: {link['source']} -> {link['target']}")
-                
-        return {"nodes": nodes, "links": valid_links}
-        
-    except Exception as e:
-        print(f"Graph Generation Error: {e}")
-        raise e
+Act as a knowledge-graph extraction engine. Build a useful graph for: {topic}
+
+Source context:
+{context or 'No external context was available; use established knowledge.'}
+
+Return 25-30 entities and 30-40 meaningful relationships. Cover the ecosystem,
+products, features, competitors, people, and key concepts. Use stable, concise
+IDs. Each node group must be product, feature, concept, company, or person.
+"""
+    return _normalize_graph(
+        json.loads(_call_gemini(prompt, _graph_schema()))
+    )
+
 
 def expand_graph(original_data, target_node):
-    model = "gemini-2.5-flash"
-    
+    existing = ", ".join(
+        str(node.get("label", ""))
+        for node in original_data.get("nodes", [])
+    )
     prompt = f"""
-    Act as a Knowledge Graph expansion engine.
-    
-    Target Entity: "{target_node['label']}" (Type: {target_node['group']})
-    Context: This entity is part of a larger graph about "{original_data['nodes'][0]['label'] if original_data['nodes'] else 'unknown topic'}".
-    
-    Task: Identify 5-8 NEW, specific entities that are directly related to "{target_node['label']}" but are NOT already in the existing list.
-    
-    Existing Nodes (DO NOT DUPLICATE):
-    {', '.join([n['label'] for n in original_data['nodes']])}
-    
-    Requirements:
-    - Generate 5-8 new nodes.
-    - Generate links connecting these new nodes to the Target Entity ("{target_node['id']}").
-    - You may also link new nodes to other existing nodes if a strong relationship exists.
-    - Ensure the JSON is strictly valid.
-    """
-    
-    try:
-        response = client.models.generate_content(
-            model=model,
-            contents=prompt,
-            config={
-                "response_mime_type": "application/json",
-                "response_schema": {
-                    "type": types.Type.OBJECT,
-                    "properties": {
-                        "nodes": {
-                            "type": types.Type.ARRAY,
-                            "items": {
-                                "type": types.Type.OBJECT,
-                                "properties": {
-                                    "id": {"type": types.Type.STRING},
-                                    "label": {"type": types.Type.STRING},
-                                    "group": {"type": types.Type.STRING, "enum": ['product', 'feature', 'concept', 'company', 'person']},
-                                    "details": {"type": types.Type.STRING},
-                                    "val": {"type": types.Type.NUMBER, "description": "Importance value 1-10"}
-                                },
-                                "required": ["id", "label", "group", "val"]
-                            }
-                        },
-                        "links": {
-                            "type": types.Type.ARRAY,
-                            "items": {
-                                "type": types.Type.OBJECT,
-                                "properties": {
-                                    "source": {"type": types.Type.STRING},
-                                    "target": {"type": types.Type.STRING},
-                                    "relation": {"type": types.Type.STRING}
-                                },
-                                "required": ["source", "target", "relation"]
-                            }
-                        }
-                    }
-                }
-            }
-        )
-        
-        if not response.text:
-            raise Exception("No data returned from Gemini for expansion")
-            
-        new_data = json.loads(response.text)
-        
-        # Mark new nodes
-        new_nodes = new_data.get('nodes', [])
-        for n in new_nodes:
-            n['status'] = 'new'
-            
-        # Ensure all nodes mentioned in links exist
-        existing_ids = set(n['id'] for n in original_data['nodes'])
-        new_node_ids = set(n['id'] for n in new_nodes)
-        
-        links = new_data.get('links', [])
-        for link in links:
-            source = link['source']
-            target = link['target']
-            
-            # Check Source
-            if source not in existing_ids and source not in new_node_ids:
-                print(f"Auto-creating missing source node: {source}")
-                new_nodes.append({
-                    "id": source,
-                    "label": source.replace('_', ' '),
-                    "group": "concept", # Default to concept
-                    "details": "Inferred entity from relationship.",
-                    "val": 5,
-                    "status": "new"
-                })
-                new_node_ids.add(source)
-                
-            # Check Target
-            if target not in existing_ids and target not in new_node_ids:
-                print(f"Auto-creating missing target node: {target}")
-                new_nodes.append({
-                    "id": target,
-                    "label": target.replace('_', ' '),
-                    "group": "concept", # Default to concept
-                    "details": "Inferred entity from relationship.",
-                    "val": 5,
-                    "status": "new"
-                })
-                new_node_ids.add(target)
-        
-        return {"nodes": new_nodes, "links": links}
-        
-    except Exception as e:
-        print(f"Graph Expansion Error: {e}")
-        raise e
+Expand a knowledge graph around {target_node['label']}
+({target_node['group']}). Create 5-8 new entities and their direct
+relationships. Do not duplicate these existing entities: {existing}.
+Include the target ID {target_node['id']} in links but do not recreate
+the target as a new node.
+"""
+    raw = json.loads(_call_gemini(prompt, _graph_schema()))
+
+    raw_nodes = raw.get("nodes", [])
+    if not any(
+        str(node.get("id")) == str(target_node["id"])
+        for node in raw_nodes
+    ):
+        raw_nodes.append({
+            **target_node,
+            "details": target_node.get("details", ""),
+            "val": 7,
+        })
+
+    normalized = _normalize_graph({
+        "nodes": raw_nodes,
+        "links": raw.get("links", []),
+    })
+    normalized["nodes"] = [
+        {**node, "status": "new"}
+        for node in normalized["nodes"]
+        if node["id"] != str(target_node["id"])
+    ]
+    return normalized
+
 
 def search_web(topic):
-    from ddgs import DDGS
-    import time
-    
-    print(f"Searching DuckDuckGo for: {topic}")
-    
-    for attempt in range(3):
-        try:
-            # Use ddgs with IN region and safesearch off for better relevance
-            results = DDGS().text(topic, region='in-en', safesearch='off', max_results=5)
-            # Convert generator/list to list safely
-            results_list = list(results) if results else []
-            
-            if results_list:
-                urls = [r['href'] for r in results_list if 'href' in r]
-                print(f"Found URLs (Attempt {attempt+1}): {urls}")
-                return urls
-            else:
-                print(f"Attempt {attempt+1}: No results found.")
-                time.sleep(1)
-                
-        except Exception as e:
-            print(f"DuckDuckGo Search Error (Attempt {attempt+1}): {e}")
-            time.sleep(1)
-            
-    # Fallback to Wikipedia if search fails after retries
-    print("All search attempts failed. Using fallback.")
-    return [f"https://en.wikipedia.org/wiki/{topic.replace(' ', '_')}"]
+    params = urlencode({
+        "action": "opensearch",
+        "search": topic,
+        "limit": 5,
+        "namespace": 0,
+        "format": "json",
+    })
+    request = Request(
+        f"https://en.wikipedia.org/w/api.php?{params}",
+        headers={
+            "User-Agent": "KnowledgeGraph/1.0 (research application)"
+        },
+    )
+    try:
+        with urlopen(request, timeout=8) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+        urls = [
+            url
+            for url in (payload[3] if len(payload) > 3 else [])
+            if _is_public_http_url(url)
+        ]
+        if urls:
+            return urls
+    except (
+        HTTPError,
+        URLError,
+        TimeoutError,
+        ValueError,
+        json.JSONDecodeError,
+    ):
+        pass
+    return [
+        f"https://en.wikipedia.org/wiki/"
+        f"{quote(topic.replace(' ', '_'))}"
+    ]
+
 
 def answer_question(question, graph_context):
-    model = "gemini-2.5-flash"
-    
-    # Create context summary
-    nodes = graph_context.get('nodes', [])
-    links = graph_context.get('links', [])
-    
-    context_summary = "\n".join([f"{n['label']} ({n['group']}): {n.get('details', '')}" for n in nodes])
-    relationships = "\n".join([f"{l['source']} -> {l['relation']} -> {l['target']}" for l in links])
-    
+    node_context = "\n".join(
+        f"{node['label']} [{node.get('id', '')}] "
+        f"({node['group']}): {node.get('details', '')}"
+        for node in graph_context.get("nodes", [])
+    )
+    relationships = "\n".join(
+        f"{link['source']} -> {link['relation']} -> {link['target']}"
+        for link in graph_context.get("links", [])
+    )
     prompt = f"""
-    You are an intelligent assistant powered by a Knowledge Graph about the topic.
-    
-    Context from Knowledge Graph:
-    {context_summary}
-    
-    Relationships:
-    {relationships}
-    
-    User Question: {question}
-    
-    Instructions:
-    - Answer the question comprehensively using the provided context.
-    - If the context is missing specific details, use your internal knowledge or the provided search tool.
-    - CITATIONS: When you use information from a specific node in the graph, you MUST cite it using the format [cite: node_id].
-    - Example: "Zoho CRM [cite: 3] is a product of Zoho Corp [cite: 1]."
-    - Do not use markdown links for citations, use the [cite: id] format exactly.
-    """
-    
+Answer the user's question using this knowledge graph. Cite graph nodes
+with the exact format [cite: node_id]. Be concise, direct, and clearly
+distinguish facts from inferences.
+
+Nodes:
+{node_context}
+
+Relationships:
+{relationships}
+
+Question: {question}
+"""
+    return _call_gemini(prompt, use_search=True)
+
+
+def _is_public_http_url(url):
     try:
-        response = client.models.generate_content(
-            model=model,
-            contents=prompt,
-            config={
-                "tools": [{"google_search": {}}],
-                "system_instruction": "You are a helpful expert.",
-            }
+        parsed = urlparse(url)
+        if (
+            parsed.scheme not in {"http", "https"}
+            or not parsed.hostname
+        ):
+            return False
+        addresses = socket.getaddrinfo(
+            parsed.hostname,
+            parsed.port or 443,
+            type=socket.SOCK_STREAM,
         )
-        
-        return response.text or "I could not generate an answer."
-    except Exception as e:
-        print(f"RAG Error: {e}")
-        return "Error generating response."
+        return bool(addresses) and all(
+            ipaddress.ip_address(item[4][0]).is_global
+            for item in addresses
+        )
+    except (OSError, ValueError):
+        return False
+
+
+class _PublicRedirectHandler(HTTPRedirectHandler):
+    def redirect_request(
+        self,
+        request,
+        file_pointer,
+        code,
+        message,
+        headers,
+        new_url,
+    ):
+        if not _is_public_http_url(new_url):
+            raise HTTPError(
+                new_url,
+                403,
+                "Redirect target is not public",
+                headers,
+                file_pointer,
+            )
+        return super().redirect_request(
+            request,
+            file_pointer,
+            code,
+            message,
+            headers,
+            new_url,
+        )
+
+
+class _VisibleTextParser(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.hidden_depth = 0
+        self.parts = []
+
+    def handle_starttag(self, tag, attrs):
+        if tag in {"script", "style", "noscript", "svg"}:
+            self.hidden_depth += 1
+
+    def handle_endtag(self, tag):
+        if (
+            tag in {"script", "style", "noscript", "svg"}
+            and self.hidden_depth
+        ):
+            self.hidden_depth -= 1
+
+    def handle_data(self, data):
+        if not self.hidden_depth:
+            clean = " ".join(data.split())
+            if clean:
+                self.parts.append(clean)
+
 
 def scrape_urls(urls):
+    opener = build_opener(_PublicRedirectHandler())
     scraped_content = []
-    
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-    }
-    
-    for url in urls[:3]: # Limit to top 3 to save time/tokens
+    for url in urls[:3]:
+        if not _is_public_http_url(url):
+            continue
         try:
-            print(f"Scraping: {url}")
-            response = requests.get(url, headers=headers, timeout=5)
-            if response.status_code == 200:
-                soup = BeautifulSoup(response.text, 'html.parser')
-                
-                # Remove scripts and styles
-                for script in soup(["script", "style"]):
-                    script.decompose()
-                    
-                text = soup.get_text()
-                
-                # Clean text
-                lines = (line.strip() for line in text.splitlines())
-                chunks = (phrase.strip() for line in lines for phrase in line.split("  "))
-                text = '\n'.join(chunk for chunk in chunks if chunk)
-                
-                # Limit length
-                scraped_content.append(f"--- Content from {url} ---\n{text[:2000]}")
-            else:
-                scraped_content.append(f"--- Failed to scrape {url}: Status {response.status_code} ---")
-                
-        except Exception as e:
-            print(f"Scrape Error for {url}: {e}")
-            scraped_content.append(f"--- Failed to scrape {url}: {str(e)} ---")
-            
+            request = Request(
+                url,
+                headers={"User-Agent": "KnowledgeGraph/1.0"},
+            )
+            with opener.open(request, timeout=8) as response:
+                content_type = response.headers.get_content_type()
+                if content_type not in {"text/html", "text/plain"}:
+                    continue
+                body = response.read(350_000).decode(
+                    response.headers.get_content_charset() or "utf-8",
+                    errors="replace",
+                )
+                final_url = response.geturl()
+            parser = _VisibleTextParser()
+            parser.feed(body)
+            text = "\n".join(parser.parts)[:4000]
+            if text:
+                scraped_content.append(
+                    f"--- Content from {final_url} ---\n{text}"
+                )
+        except (
+            HTTPError,
+            URLError,
+            TimeoutError,
+            ValueError,
+        ):
+            continue
     return "\n\n".join(scraped_content)
