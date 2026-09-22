@@ -1,0 +1,33 @@
+/* Custom Scrollbar */
+.scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+    background-color: #374151;
+    border-radius: 3px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background-color: #4b5563;
+}
+
+/* Animations */
+@keyframes pulse-ring {
+    0% { transform: scale(0.8); opacity: 0.5; }
+    100% { transform: scale(2); opacity: 0; }
+}
+
+/* Graph Node Styles */
+.node circle {
+    transition: all 0.3s ease;
+}
+
+.node:hover circle {
+    filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.5));
+}

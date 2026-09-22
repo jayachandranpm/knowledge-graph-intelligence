@@ -16,6 +16,10 @@ from mysql.connector import Error
 app = Flask(__name__)
 CORS(app)
 
+MAX_TOPIC_LENGTH = 200
+MAX_CONTEXT_LENGTH = 20_000
+MAX_MESSAGE_LENGTH = 4_000
+
 # Database Configuration
 # Construct URI from individual env vars to keep ORM working while using user's preferred config method
 db_user = os.getenv('DB_USER')
@@ -71,10 +75,12 @@ def health_check():
 
 @app.route('/api/search', methods=['POST'])
 def search_endpoint():
-    data = request.json
-    topic = data.get('topic')
+    data = request.get_json(silent=True) or {}
+    topic = str(data.get('topic', '')).strip()
     if not topic:
         return jsonify({"error": "Topic is required"}), 400
+    if len(topic) > MAX_TOPIC_LENGTH:
+        return jsonify({"error": f"Topic must be {MAX_TOPIC_LENGTH} characters or fewer"}), 400
     
     try:
         urls = search_web(topic)
@@ -85,8 +91,11 @@ def search_endpoint():
 
 @app.route('/api/scrape', methods=['POST'])
 def scrape_endpoint():
-    data = request.json
+    data = request.get_json(silent=True) or {}
     urls = data.get('urls', [])
+    if not isinstance(urls, list):
+        return jsonify({"error": "URLs must be provided as a list"}), 400
+    urls = [url for url in urls[:5] if isinstance(url, str)]
     if not urls:
         return jsonify("")
     
@@ -98,13 +107,17 @@ def scrape_endpoint():
 
 @app.route('/api/graph/generate', methods=['POST'])
 def generate_graph():
-    data = request.json
-    topic = data.get('topic')
-    context = data.get('context', "")
+    data = request.get_json(silent=True) or {}
+    topic = str(data.get('topic', '')).strip()
+    context = str(data.get('context', ''))[:MAX_CONTEXT_LENGTH]
     source_urls = data.get('source_urls', [])
     
     if not topic:
         return jsonify({"error": "Topic is required"}), 400
+    if len(topic) > MAX_TOPIC_LENGTH:
+        return jsonify({"error": f"Topic must be {MAX_TOPIC_LENGTH} characters or fewer"}), 400
+    if not isinstance(source_urls, list):
+        source_urls = []
         
     try:
         # Generate Graph with context
@@ -148,11 +161,13 @@ def generate_graph():
         })
         
     except Exception as e:
+        db.session.rollback()
+        app.logger.exception("Graph generation failed")
         return jsonify({"error": str(e)}), 500
 
 @app.route('/api/graph/expand', methods=['POST'])
 def expand_graph_endpoint():
-    data = request.json
+    data = request.get_json(silent=True) or {}
     session_id = data.get('session_id')
     node_id = data.get('node_id')
     
@@ -212,16 +227,20 @@ def expand_graph_endpoint():
         return jsonify(new_data)
         
     except Exception as e:
+        db.session.rollback()
+        app.logger.exception("Graph expansion failed")
         return jsonify({"error": str(e)}), 500
 
 @app.route('/api/chat', methods=['POST'])
 def chat_endpoint():
-    data = request.json
+    data = request.get_json(silent=True) or {}
     session_id = data.get('session_id')
-    message = data.get('message')
+    message = str(data.get('message', '')).strip()
     
     if not session_id or not message:
         return jsonify({"error": "Session ID and Message are required"}), 400
+    if len(message) > MAX_MESSAGE_LENGTH:
+        return jsonify({"error": f"Message must be {MAX_MESSAGE_LENGTH} characters or fewer"}), 400
         
     try:
         # Save User Message
@@ -230,6 +249,9 @@ def chat_endpoint():
         
         # Get Graph Context
         session = db.session.get(Session, session_id)
+        if not session:
+            db.session.rollback()
+            return jsonify({"error": "Session not found"}), 404
         nodes = [{"label": n.label, "group": n.group, "details": n.details} for n in session.nodes]
         links = [{"source": l.source, "target": l.target, "relation": l.relation} for l in session.links]
         graph_context = {"nodes": nodes, "links": links}
@@ -245,6 +267,8 @@ def chat_endpoint():
         return jsonify({"response": answer})
         
     except Exception as e:
+        db.session.rollback()
+        app.logger.exception("Chat request failed")
         return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
