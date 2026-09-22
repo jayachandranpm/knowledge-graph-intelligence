@@ -241,7 +241,15 @@ def chat_endpoint():
         if not session:
             db.session.rollback()
             return jsonify({"error": "Session not found"}), 404
-        nodes = [{"label": n.label, "group": n.group, "details": n.details} for n in session.nodes]
+        nodes = [
+            {
+                "id": n.id,
+                "label": n.label,
+                "group": n.group,
+                "details": n.details,
+            }
+            for n in session.nodes
+        ]
         links = [{"source": l.source, "target": l.target, "relation": l.relation} for l in session.links]
         graph_context = {"nodes": nodes, "links": links}
         

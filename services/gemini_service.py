@@ -435,7 +435,11 @@ def fallback_answer(question, graph_context):
     if not relevant:
         return "The graph does not yet contain enough information to answer that question."
     entities = "; ".join(
-        f"{node['label']} [cite: {node['id']}]: {node.get('details') or node['group']}"
+        (
+            f"{node.get('label', 'Unknown entity')}"
+            f"{f' [cite: {node_id}]' if (node_id := node.get('id')) else ''}: "
+            f"{node.get('details') or node.get('group') or 'No details available'}"
+        )
         for node in relevant
     )
     return (
