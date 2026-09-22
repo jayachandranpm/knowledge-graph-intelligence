@@ -56,6 +56,7 @@ with app.app_context():
 def index():
     return render_template('index.html')
 
+@app.route('/health', methods=['GET'])
 @app.route('/api/health', methods=['GET'])
 def health_check():
     try:
@@ -247,4 +248,6 @@ def chat_endpoint():
         return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+    port = int(os.getenv('X_ZOHO_CATALYST_LISTEN_PORT', os.getenv('PORT', '5000')))
+    debug = os.getenv('FLASK_DEBUG', 'false').lower() == 'true'
+    app.run(debug=debug, host='0.0.0.0', port=port)

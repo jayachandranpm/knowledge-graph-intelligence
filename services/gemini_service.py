@@ -7,7 +7,7 @@ from bs4 import BeautifulSoup
 
 # Initialize Gemini Client
 # Ensure GEMINI_API_KEY is set in your environment variables
-GOOGLE_API_KEY = os.getenv('GEMINI_API_KEY')
+GOOGLE_API_KEY = os.getenv('GEMINI_API_KEY') or os.getenv('VITE_GEMINI_API_KEY')
 client = genai.Client(api_key=GOOGLE_API_KEY)
 
 def generate_knowledge_graph(topic, context=""):
