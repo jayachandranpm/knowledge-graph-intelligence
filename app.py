@@ -6,7 +6,15 @@ load_dotenv()
 
 from flask import Flask, request, jsonify, render_template
 from models import db, Session, Node, Link, Log, Message
-from services.gemini_service import generate_knowledge_graph, expand_graph, search_web, answer_question, scrape_urls
+from services.gemini_service import (
+    answer_question,
+    expand_graph,
+    fallback_answer,
+    fallback_knowledge_graph,
+    generate_knowledge_graph,
+    scrape_urls,
+    search_web,
+)
 from sqlalchemy import text
 
 app = Flask(__name__)
@@ -93,8 +101,15 @@ def generate_graph():
         source_urls = []
         
     try:
-        # Generate Graph with context
-        graph_data = generate_knowledge_graph(topic, context)
+        # Generate the AI graph, falling back to deterministic source extraction
+        # if the upstream model is temporarily unavailable.
+        degraded = False
+        try:
+            graph_data = generate_knowledge_graph(topic, context)
+        except RuntimeError as model_error:
+            app.logger.warning("AI graph generation unavailable: %s", model_error)
+            graph_data = fallback_knowledge_graph(topic, context)
+            degraded = True
         
 
         
@@ -130,7 +145,8 @@ def generate_graph():
         return jsonify({
             "session_id": session.id,
             "graph": graph_data,
-            "sources": source_urls
+            "sources": source_urls,
+            "degraded": degraded,
         })
         
     except Exception as e:
@@ -230,14 +246,20 @@ def chat_endpoint():
         graph_context = {"nodes": nodes, "links": links}
         
         # Get Answer
-        answer = answer_question(message, graph_context)
+        degraded = False
+        try:
+            answer = answer_question(message, graph_context)
+        except RuntimeError as model_error:
+            app.logger.warning("AI chat unavailable: %s", model_error)
+            answer = fallback_answer(message, graph_context)
+            degraded = True
         
         # Save Assistant Message
         ai_msg = Message(session_id=session_id, role='assistant', content=answer)
         db.session.add(ai_msg)
         db.session.commit()
         
-        return jsonify({"response": answer})
+        return jsonify({"response": answer, "degraded": degraded})
         
     except Exception as e:
         db.session.rollback()

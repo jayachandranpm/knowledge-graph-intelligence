@@ -168,6 +168,13 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!response.ok) {
                 throw new Error(data.error || `Graph generation failed (${response.status})`);
             }
+            if (data.degraded) {
+                addLog(
+                    'SYSTEM',
+                    'The AI provider is busy. Showing a source-derived graph so you can continue working.',
+                    'warning'
+                );
+            }
             console.log("API Response Data:", data);
 
             // --- MOCK DATA FALLBACK (If API fails to generate nodes) ---

@@ -1,8 +1,10 @@
 import ipaddress
 import json
 import os
+import re
 import socket
 import time
+from collections import Counter
 from html.parser import HTMLParser
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote, urlencode, urlparse
@@ -49,14 +51,14 @@ def _call_gemini(prompt, response_schema=None, use_search=False):
     )
 
     result = None
-    for attempt in range(3):
+    for attempt in range(2):
         try:
             with urlopen(request, timeout=105) as response:
                 result = json.loads(response.read().decode("utf-8"))
             break
         except HTTPError as error:
             detail = error.read(1000).decode("utf-8", errors="replace")
-            if error.code in {429, 500, 502, 503, 504} and attempt < 2:
+            if error.code in {429, 500, 502, 503, 504} and attempt < 1:
                 time.sleep(1.5 * (attempt + 1))
                 continue
             if error.code == 429:
@@ -72,7 +74,7 @@ def _call_gemini(prompt, response_schema=None, use_search=False):
                     message = "The AI service rejected the request."
             raise RuntimeError(message) from error
         except (URLError, TimeoutError) as error:
-            if attempt < 2:
+            if attempt < 1:
                 time.sleep(1.5 * (attempt + 1))
                 continue
             raise RuntimeError(
@@ -202,6 +204,82 @@ IDs. Each node group must be product, feature, concept, company, or person.
     )
 
 
+def fallback_knowledge_graph(topic, context=""):
+    root_id = "topic"
+    nodes = [{
+        "id": root_id,
+        "label": topic,
+        "group": "concept",
+        "details": "The central topic for this source-derived graph.",
+        "val": 10,
+    }]
+
+    phrase_pattern = re.compile(
+        r"\b[A-Z][A-Za-z0-9&.-]+(?:\s+[A-Z][A-Za-z0-9&.-]+){0,3}\b"
+    )
+    excluded = {
+        "The", "This", "That", "These", "Those", "Content", "Main",
+        "Page", "Retrieved", "Wikipedia", "References", "External Links",
+    }
+    counts = Counter(
+        phrase.strip(" .,-")
+        for phrase in phrase_pattern.findall(context)
+        if len(phrase) > 2 and phrase not in excluded
+    )
+
+    candidates = []
+    topic_lower = topic.lower()
+    for phrase, count in counts.most_common(40):
+        if phrase.lower() == topic_lower:
+            continue
+        if any(phrase.lower() == existing.lower() for existing, _ in candidates):
+            continue
+        candidates.append((phrase, count))
+        if len(candidates) == 14:
+            break
+
+    if len(candidates) < 6:
+        candidates.extend([
+            ("Key Concepts", 3),
+            ("Products and Services", 3),
+            ("Organizations", 2),
+            ("People", 2),
+            ("Applications", 2),
+            ("Open Questions", 1),
+        ])
+
+    links = []
+    used_ids = {root_id}
+    for index, (label, count) in enumerate(candidates[:14], start=1):
+        base_id = re.sub(r"[^a-z0-9]+", "_", label.lower()).strip("_") or f"entity_{index}"
+        node_id = base_id
+        suffix = 2
+        while node_id in used_ids:
+            node_id = f"{base_id}_{suffix}"
+            suffix += 1
+        used_ids.add(node_id)
+
+        lowered = label.lower()
+        group = "company" if any(
+            marker in lowered
+            for marker in ("company", "corporation", "corp", "inc", "ltd")
+        ) else "concept"
+        nodes.append({
+            "id": node_id,
+            "label": label,
+            "group": group,
+            "details": "Identified in the retrieved source material.",
+            "val": max(3, min(8, count + 3)),
+        })
+        links.append({
+            "source": root_id,
+            "target": node_id,
+            "relation": "related_to",
+        })
+
+    return {"nodes": nodes, "links": links}
+
+
 def expand_graph(original_data, target_node):
     existing = ", ".join(
         str(node.get("label", ""))
@@ -301,6 +379,30 @@ Relationships:
 Question: {question}
 """
     return _call_gemini(prompt)
+
+
+def fallback_answer(question, graph_context):
+    question_terms = {
+        token for token in re.findall(r"[a-z0-9]+", question.lower())
+        if len(token) > 2
+    }
+    scored = []
+    for node in graph_context.get("nodes", []):
+        searchable = f"{node.get('label', '')} {node.get('details', '')}".lower()
+        score = sum(term in searchable for term in question_terms)
+        scored.append((score, node))
+    scored.sort(key=lambda item: (item[0], item[1].get("val", 0)), reverse=True)
+    relevant = [node for _, node in scored[:4]]
+    if not relevant:
+        return "The graph does not yet contain enough information to answer that question."
+    entities = "; ".join(
+        f"{node['label']} [cite: {node['id']}]: {node.get('details') or node['group']}"
+        for node in relevant
+    )
+    return (
+        "The AI service is temporarily busy, so this answer uses the saved "
+        f"graph context directly. Relevant entities: {entities}"
+    )
 
 
 def _is_public_http_url(url):
