@@ -158,9 +158,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 body: JSON.stringify({ topic, context, source_urls: urls })
             });
 
-            if (!response.ok) throw new Error((await response.json()).error);
-
-            const data = await response.json();
+            const responseBody = await response.text();
+            let data;
+            try {
+                data = JSON.parse(responseBody);
+            } catch (parseError) {
+                throw new Error('The graph service returned an incomplete response. Please try again.');
+            }
+            if (!response.ok) {
+                throw new Error(data.error || `Graph generation failed (${response.status})`);
+            }
             console.log("API Response Data:", data);
 
             // --- MOCK DATA FALLBACK (If API fails to generate nodes) ---
@@ -227,7 +234,9 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('export-btn').classList.remove('hidden');
 
         } catch (error) {
-            addLog('SYSTEM', `Pipeline failed: ${error.message}`, 'error');
+            console.error('Pipeline Error:', error);
+            const message = error?.message || 'An unexpected error interrupted the pipeline.';
+            addLog('SYSTEM', `Pipeline failed: ${message}`, 'error');
             statusDot.className = 'w-2 h-2 rounded-full bg-red-500';
             updatePipelineStep('IDLE');
         } finally {

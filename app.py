@@ -12,7 +12,7 @@ from sqlalchemy import text
 app = Flask(__name__)
 
 MAX_TOPIC_LENGTH = 200
-MAX_CONTEXT_LENGTH = 20_000
+MAX_CONTEXT_LENGTH = 8_000
 MAX_MESSAGE_LENGTH = 4_000
 
 # Database Configuration

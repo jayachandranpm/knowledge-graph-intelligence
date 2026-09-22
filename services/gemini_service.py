@@ -171,7 +171,7 @@ Act as a knowledge-graph extraction engine. Build a useful graph for: {topic}
 Source context:
 {context or 'No external context was available; use established knowledge.'}
 
-Return 25-30 entities and 30-40 meaningful relationships. Cover the ecosystem,
+Return 18-24 entities and 24-32 meaningful relationships. Cover the ecosystem,
 products, features, competitors, people, and key concepts. Use stable, concise
 IDs. Each node group must be product, feature, concept, company, or person.
 """
@@ -369,14 +369,14 @@ def scrape_urls(urls):
                 content_type = response.headers.get_content_type()
                 if content_type not in {"text/html", "text/plain"}:
                     continue
-                body = response.read(350_000).decode(
+                body = response.read(200_000).decode(
                     response.headers.get_content_charset() or "utf-8",
                     errors="replace",
                 )
                 final_url = response.geturl()
             parser = _VisibleTextParser()
             parser.feed(body)
-            text = "\n".join(parser.parts)[:4000]
+            text = "\n".join(parser.parts)[:1500]
             if text:
                 scraped_content.append(
                     f"--- Content from {final_url} ---\n{text}"
