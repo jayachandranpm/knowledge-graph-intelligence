@@ -215,21 +215,39 @@ def fallback_knowledge_graph(topic, context=""):
     }]
 
     phrase_pattern = re.compile(
-        r"\b[A-Z][A-Za-z0-9&.-]+(?:\s+[A-Z][A-Za-z0-9&.-]+){0,3}\b"
+        r"\b[A-Z][A-Za-z0-9&.-]+(?:[ \t]+[A-Z][A-Za-z0-9&.-]+){0,3}\b"
     )
-    excluded = {
-        "The", "This", "That", "These", "Those", "Content", "Main",
-        "Page", "Retrieved", "Wikipedia", "References", "External Links",
+    banned_terms = {
+        "about", "account", "appearance", "community", "contact",
+        "ceo", "content", "contribute", "create", "developer", "donate", "edit",
+        "for", "founded", "headquarters", "help", "history", "industry",
+        "jump", "key", "language", "learn", "log", "main", "menu",
+        "navigation", "page", "random", "read", "recent", "references",
+        "publisher", "products", "revenue", "search", "special", "talk",
+        "this", "title", "tools", "type", "upload", "view", "website",
+        "wikipedia", "worldwide",
     }
-    counts = Counter(
-        phrase.strip(" .,-")
-        for phrase in phrase_pattern.findall(context)
-        if len(phrase) > 2 and phrase not in excluded
-    )
+    counts = Counter()
+    for raw_phrase in phrase_pattern.findall(context):
+        phrase = raw_phrase.strip(" .,-")
+        words = set(re.findall(r"[a-z]+", phrase.lower()))
+        if len(phrase) <= 2 or words & banned_terms:
+            continue
+        counts[phrase] += 1
 
     candidates = []
     topic_lower = topic.lower()
-    for phrase, count in counts.most_common(40):
+    ranked_phrases = sorted(
+        counts.items(),
+        key=lambda item: (
+            item[1],
+            len(item[0].split()) > 1,
+            len(item[0].split()),
+            len(item[0]),
+        ),
+        reverse=True,
+    )
+    for phrase, count in ranked_phrases[:60]:
         if phrase.lower() == topic_lower:
             continue
         if any(phrase.lower() == existing.lower() for existing, _ in candidates):
@@ -334,11 +352,32 @@ def search_web(topic):
     try:
         with urlopen(request, timeout=8) as response:
             payload = json.loads(response.read().decode("utf-8"))
-        urls = [
-            url
-            for url in (payload[3] if len(payload) > 3 else [])
-            if _is_public_http_url(url)
-        ]
+        titles = payload[1] if len(payload) > 1 else []
+        raw_urls = payload[3] if len(payload) > 3 else []
+        topic_terms = {
+            term for term in re.findall(r"[a-z0-9]+", topic.lower())
+            if len(term) > 2
+        }
+        distinctive_terms = topic_terms - {
+            "company", "corporation", "group", "inc", "limited", "ltd",
+        }
+        ranked_urls = []
+        for title, url in zip(titles, raw_urls):
+            title_terms = set(re.findall(r"[a-z0-9]+", title.lower()))
+            overlap = len(topic_terms & title_terms)
+            distinctive_overlap = len(distinctive_terms & title_terms)
+            if (
+                overlap
+                and (not distinctive_terms or distinctive_overlap)
+                and _is_public_http_url(url)
+            ):
+                ranked_urls.append((
+                    title.lower() == topic.lower(),
+                    overlap,
+                    url,
+                ))
+        ranked_urls.sort(reverse=True)
+        urls = [item[2] for item in ranked_urls[:5]]
         if urls:
             return urls
     except (
@@ -458,15 +497,27 @@ class _VisibleTextParser(HTMLParser):
     def __init__(self):
         super().__init__()
         self.hidden_depth = 0
+        self.main_depth = 0
         self.parts = []
+        self.main_parts = []
 
     def handle_starttag(self, tag, attrs):
-        if tag in {"script", "style", "noscript", "svg"}:
+        if tag == "main":
+            self.main_depth += 1
+        if tag in {
+            "script", "style", "noscript", "svg", "nav", "header",
+            "footer", "aside",
+        }:
             self.hidden_depth += 1
 
     def handle_endtag(self, tag):
+        if tag == "main" and self.main_depth:
+            self.main_depth -= 1
         if (
-            tag in {"script", "style", "noscript", "svg"}
+            tag in {
+                "script", "style", "noscript", "svg", "nav", "header",
+                "footer", "aside",
+            }
             and self.hidden_depth
         ):
             self.hidden_depth -= 1
@@ -476,6 +527,8 @@ class _VisibleTextParser(HTMLParser):
             clean = " ".join(data.split())
             if clean:
                 self.parts.append(clean)
+                if self.main_depth:
+                    self.main_parts.append(clean)
 
 
 def scrape_urls(urls):
@@ -500,7 +553,7 @@ def scrape_urls(urls):
                 final_url = response.geturl()
             parser = _VisibleTextParser()
             parser.feed(body)
-            text = "\n".join(parser.parts)[:1500]
+            text = "\n".join(parser.main_parts or parser.parts)[:1500]
             if text:
                 scraped_content.append(
                     f"--- Content from {final_url} ---\n{text}"
