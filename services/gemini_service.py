@@ -2,6 +2,7 @@ import ipaddress
 import json
 import os
 import socket
+import time
 from html.parser import HTMLParser
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote, urlencode, urlparse
@@ -47,18 +48,39 @@ def _call_gemini(prompt, response_schema=None, use_search=False):
         method="POST",
     )
 
-    try:
-        with urlopen(request, timeout=105) as response:
-            result = json.loads(response.read().decode("utf-8"))
-    except HTTPError as error:
-        detail = error.read(1000).decode("utf-8", errors="replace")
-        raise RuntimeError(
-            f"Gemini request failed ({error.code}): {detail}"
-        ) from error
-    except (URLError, TimeoutError) as error:
-        raise RuntimeError(
-            f"Gemini request could not be completed: {error}"
-        ) from error
+    result = None
+    for attempt in range(3):
+        try:
+            with urlopen(request, timeout=105) as response:
+                result = json.loads(response.read().decode("utf-8"))
+            break
+        except HTTPError as error:
+            detail = error.read(1000).decode("utf-8", errors="replace")
+            if error.code in {429, 500, 502, 503, 504} and attempt < 2:
+                time.sleep(1.5 * (attempt + 1))
+                continue
+            if error.code == 429:
+                message = "The AI service is temporarily rate-limited. Please try again shortly."
+            elif error.code in {500, 502, 503, 504}:
+                message = "The AI service is temporarily busy. Please try again shortly."
+            else:
+                try:
+                    message = json.loads(detail).get("error", {}).get(
+                        "message", "The AI service rejected the request."
+                    )
+                except json.JSONDecodeError:
+                    message = "The AI service rejected the request."
+            raise RuntimeError(message) from error
+        except (URLError, TimeoutError) as error:
+            if attempt < 2:
+                time.sleep(1.5 * (attempt + 1))
+                continue
+            raise RuntimeError(
+                "The AI service could not be reached. Please try again shortly."
+            ) from error
+
+    if result is None:
+        raise RuntimeError("The AI service did not return a response.")
 
     candidates = result.get("candidates") or []
     if not candidates:
@@ -278,7 +300,7 @@ Relationships:
 
 Question: {question}
 """
-    return _call_gemini(prompt, use_search=True)
+    return _call_gemini(prompt)
 
 
 def _is_public_http_url(url):
