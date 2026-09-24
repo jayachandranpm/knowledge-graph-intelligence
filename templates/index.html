@@ -24,14 +24,15 @@
                 <span class="topbar-divider" aria-hidden="true"></span>
                 <button class="project-switcher" id="project-switcher" type="button"><span class="project-indicator"></span><span id="project-name">Untitled research</span><i data-lucide="chevron-down"></i></button>
             </div>
+            <nav class="page-navigation" aria-label="Main pages">
+                <button class="page-nav-button active" data-page="graph" type="button"><i data-lucide="network"></i><span>Graph</span></button>
+                <button class="page-nav-button" data-page="sources" type="button"><i data-lucide="library"></i><span>Sources</span><span class="page-count" id="sources-count">0</span></button>
+                <button class="page-nav-button" data-page="saved" type="button"><i data-lucide="bookmark"></i><span>Saved</span><span class="page-count" id="saved-count">0</span></button>
+                <button class="page-nav-button" data-page="history" type="button"><i data-lucide="history"></i><span>History</span><span class="page-count" id="history-count">0</span></button>
+                <button class="page-nav-button" data-page="assistant" type="button"><i data-lucide="sparkles"></i><span>Ask AI</span></button>
+            </nav>
             <button class="command-trigger" id="command-trigger" type="button" aria-label="Open command palette"><i data-lucide="search"></i><span>Search entities or run a command</span><kbd>⌘ K</kbd></button>
             <div class="topbar-actions">
-                <div class="mode-switcher" role="group" aria-label="Graph layout">
-                    <button class="mode-button active" data-mode="explore" type="button">Explore</button>
-                    <button class="mode-button" data-mode="clusters" type="button">Clusters</button>
-                    <button class="mode-button" data-mode="timeline" type="button">Timeline</button>
-                    <button class="mode-button" data-mode="evidence" type="button">Evidence</button>
-                </div>
                 <button class="icon-button" id="filter-button" type="button" aria-label="Filter graph" aria-expanded="false"><i data-lucide="list-filter"></i><span class="action-label">Filter</span><span class="count-badge hidden" id="filter-count">0</span></button>
                 <button class="icon-button" id="share-button" type="button" aria-label="Copy a shareable graph summary"><i data-lucide="share-2"></i><span class="action-label">Share</span></button>
                 <button class="primary-button compact" id="export-button" type="button" disabled><i data-lucide="download"></i><span>Export</span></button>
@@ -46,11 +47,6 @@
                         <span class="new-graph-icon"><i data-lucide="sparkles"></i></span>
                         <span><strong>Build a new graph</strong><small>Topic, URL, or document</small></span><kbd>N</kbd>
                     </button>
-                    <nav class="workspace-nav" aria-label="Workspace sections">
-                        <button class="nav-item active" data-section="sources" type="button"><i data-lucide="library"></i><span>Sources</span><span class="nav-count" id="sources-count">0</span></button>
-                        <button class="nav-item" data-section="saved" type="button"><i data-lucide="bookmark"></i><span>Saved views</span><span class="nav-count" id="saved-count">0</span></button>
-                        <button class="nav-item" data-section="history" type="button"><i data-lucide="history"></i><span>History</span><span class="nav-count" id="history-count">0</span></button>
-                    </nav>
                     <section class="sidebar-section active" data-sidebar-section="sources">
                         <div class="section-heading"><span>Research sources</span><button class="mini-button" id="add-source-button" type="button" aria-label="Add a source"><i data-lucide="plus"></i></button></div>
                         <div class="source-list" id="source-list"><div class="sidebar-empty"><img class="sidebar-empty-illustration" src="{{ url_for('static', filename='assets/undraw/source-files.svg') }}" alt="" loading="lazy"><p>Your sources will appear here.</p></div></div>
@@ -73,8 +69,16 @@
             <main class="graph-workspace" id="graph-workspace" tabindex="-1">
                 <div class="canvas-header">
                     <div><div class="eyebrow" id="graph-eyebrow">Knowledge map</div><h1 id="graph-title">Start with a question worth exploring</h1></div>
-                    <div class="graph-metrics" aria-live="polite">
-                        <span><strong id="node-count">0</strong> entities</span><span><strong id="link-count">0</strong> relationships</span><span class="quality-indicator"><i data-lucide="shield-check"></i><strong id="source-quality">—</strong> evidence</span>
+                    <div class="canvas-header-actions">
+                        <div class="mode-switcher" role="group" aria-label="Graph layout">
+                            <button class="mode-button active" data-mode="explore" type="button">Explore</button>
+                            <button class="mode-button" data-mode="clusters" type="button">Clusters</button>
+                            <button class="mode-button" data-mode="timeline" type="button">Timeline</button>
+                            <button class="mode-button" data-mode="evidence" type="button">Evidence</button>
+                        </div>
+                        <div class="graph-metrics" aria-live="polite">
+                            <span><strong id="node-count">0</strong> entities</span><span><strong id="link-count">0</strong> relationships</span><span class="quality-indicator"><i data-lucide="shield-check"></i><strong id="source-quality">—</strong> evidence</span>
+                        </div>
                     </div>
                 </div>
                 <div class="graph-stage" id="graph-stage">

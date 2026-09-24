@@ -137,7 +137,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ['dragleave', 'drop'].forEach(type => dropZone.addEventListener(type, event => { event.preventDefault(); dropZone.classList.remove('dragging'); }));
         dropZone.addEventListener('drop', event => prepareFile(event.dataTransfer.files?.[0]));
 
-        $$('.nav-item').forEach(button => button.addEventListener('click', () => showSidebarSection(button.dataset.section)));
+        $$('.page-nav-button').forEach(button => button.addEventListener('click', () => navigatePage(button.dataset.page)));
         $('#save-view-button').addEventListener('click', saveCurrentView);
         $('#keyboard-help-button').addEventListener('click', () => openOverlay('shortcut-modal'));
         $('#sidebar-toggle').addEventListener('click', () => $('#source-sidebar').classList.toggle('open'));
@@ -581,7 +581,10 @@ document.addEventListener('DOMContentLoaded', () => {
     function setContextTab(tab) {
         $$('.context-tab').forEach(button => { const active = button.dataset.contextTab === tab; button.classList.toggle('active', active); button.setAttribute('aria-selected', String(active)); });
         $$('.context-view').forEach(view => view.classList.toggle('active', view.dataset.contextView === tab));
-        if (tab === 'assistant') setTimeout(() => elements.chatInput.focus(), 80);
+        if (tab === 'assistant') {
+            setActivePage('assistant');
+            setTimeout(() => elements.chatInput.focus(), 80);
+        }
     }
 
     function setInspectorTab(tab) {
@@ -832,9 +835,38 @@ document.addEventListener('DOMContentLoaded', () => {
         refreshIcons();
     }
 
+    function setActivePage(page) {
+        $$('.page-nav-button').forEach(button => {
+            const active = button.dataset.page === page;
+            button.classList.toggle('active', active);
+            if (active) button.setAttribute('aria-current', 'page');
+            else button.removeAttribute('aria-current');
+        });
+    }
+
+    function navigatePage(page) {
+        if (page === 'graph') {
+            $$('.sidebar-section').forEach(panel => panel.classList.toggle('active', panel.dataset.sidebarSection === 'sources'));
+            setContextTab('inspector');
+            setActivePage('graph');
+            $('#source-sidebar').classList.remove('open');
+            elements.contextPanel.classList.remove('open');
+            $('#graph-workspace').focus({ preventScroll: true });
+            return;
+        }
+        if (page === 'assistant') {
+            setContextTab('assistant');
+            if (window.innerWidth <= 820) elements.contextPanel.classList.add('open');
+            return;
+        }
+        setContextTab('inspector');
+        showSidebarSection(page);
+    }
+
     function showSidebarSection(section) {
-        $$('.nav-item').forEach(button => button.classList.toggle('active', button.dataset.section === section));
+        setActivePage(section);
         $$('.sidebar-section').forEach(panel => panel.classList.toggle('active', panel.dataset.sidebarSection === section));
+        if (window.innerWidth <= 820) $('#source-sidebar').classList.add('open');
     }
 
     function openCommandPalette() {
