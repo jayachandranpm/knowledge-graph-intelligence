@@ -26,7 +26,7 @@
     --radius-sm: 8px;
     --radius-md: 12px;
     --radius-lg: 18px;
-    --topbar-height: 64px;
+    --topbar-height: 76px;
     --statusbar-height: 42px;
     --sidebar-width: 248px;
     --context-width: 356px;
@@ -74,7 +74,7 @@ kbd {
 .app-shell { display: grid; grid-template-rows: var(--topbar-height) minmax(0, 1fr) var(--statusbar-height); width: 100vw; height: 100dvh; background: var(--bg); }
 
 /* Top bar */
-.topbar { display: grid; grid-template-columns: minmax(250px, 1fr) minmax(280px, 520px) minmax(250px, 1fr); align-items: center; gap: 16px; padding: 0 16px; border-bottom: 1px solid var(--line); background: rgba(9, 12, 18, .94); backdrop-filter: blur(16px); z-index: 80; }
+.topbar { align-self: start; min-height: 56px; display: grid; grid-template-columns: minmax(250px, 1fr) minmax(280px, 520px) minmax(250px, 1fr); align-items: center; gap: 16px; margin: 10px 14px 0; padding: 0 14px; border: 1px solid var(--line-strong); border-radius: 999px; background: var(--surface); box-shadow: 0 12px 34px rgba(0,0,0,.28); z-index: 80; }
 .brand-group, .topbar-actions, .brand, .project-switcher, .command-trigger, .icon-button, .primary-button, .secondary-button, .text-button, .tool-button, .mini-button { display: flex; align-items: center; }
 .brand-group { min-width: 0; gap: 12px; }
 .brand { gap: 10px; flex: 0 0 auto; }
@@ -189,13 +189,13 @@ kbd {
 .graph-canvas.zoomed-in .node-label.secondary, .graph-canvas .node:hover .node-label, .graph-canvas .node.selected .node-label { opacity: 1; }
 .graph-canvas .cluster-halo { opacity: .06; stroke-width: 1; stroke-dasharray: 5 8; }
 .graph-canvas .brush .selection { fill: var(--accent); fill-opacity: .14; stroke: #a99fff; stroke-width: 1.5; stroke-dasharray: 4 3; }
-.graph-toolbar { position: absolute; left: 14px; bottom: 14px; display: flex; align-items: center; gap: 2px; padding: 4px; border: 1px solid var(--line); border-radius: 11px; background: rgba(15,20,29,.9); backdrop-filter: blur(14px); box-shadow: var(--shadow); z-index: 10; }
+.graph-toolbar { position: absolute; left: 14px; bottom: 14px; display: flex; align-items: center; gap: 2px; padding: 4px; border: 1px solid var(--line); border-radius: 11px; background: var(--surface); box-shadow: var(--shadow); z-index: 10; }
 .tool-button { width: 34px; height: 34px; border-radius: 8px; color: var(--text-3); }
 .tool-button:hover, .tool-button.active { background: var(--surface-3); color: var(--text); }
 .tool-button.active { box-shadow: inset 0 0 0 1px rgba(130,116,245,.45); color: #b2a9ff; }
 .tool-button svg { width: 16px; height: 16px; }
 .toolbar-divider { width: 1px; height: 20px; margin: 0 3px; background: var(--line); }
-.minimap-shell { position: absolute; right: 14px; bottom: 14px; width: 150px; height: 105px; padding: 20px 7px 7px; border: 1px solid var(--line); border-radius: 11px; background: rgba(15,20,29,.87); backdrop-filter: blur(12px); box-shadow: var(--shadow); z-index: 8; }
+.minimap-shell { position: absolute; right: 14px; bottom: 14px; width: 150px; height: 105px; padding: 20px 7px 7px; border: 1px solid var(--line); border-radius: 11px; background: var(--surface); box-shadow: var(--shadow); z-index: 8; }
 .minimap-label { position: absolute; left: 9px; top: 6px; color: var(--text-3); font-size: 8px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
 #minimap { width: 100%; height: 100%; }
 .empty-state { position: absolute; inset: 0; z-index: 5; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 28px; text-align: center; }
@@ -223,7 +223,7 @@ kbd {
 .compare-slot { min-width: 104px; height: 30px; flex: 1; border: 1px dashed var(--line-strong); border-radius: 8px; background: rgba(255,255,255,.025); color: var(--text-3); font-size: 10px; }
 .compare-slot.filled { border-style: solid; border-color: rgba(81,215,199,.3); color: var(--text); }
 .compare-slots > svg { width: 13px; height: 13px; color: var(--text-3); }
-.presentation-card { position: absolute; left: 20px; bottom: 68px; width: min(390px, calc(100% - 40px)); overflow: hidden; border: 1px solid var(--line-strong); border-radius: 16px; background: rgba(15,20,29,.94); backdrop-filter: blur(16px); box-shadow: var(--shadow); z-index: 15; }
+.presentation-card { position: absolute; left: 20px; bottom: 68px; width: min(390px, calc(100% - 40px)); overflow: hidden; border: 1px solid var(--line-strong); border-radius: 16px; background: var(--surface); box-shadow: var(--shadow); z-index: 15; }
 .presentation-progress { height: 3px; background: rgba(255,255,255,.05); }
 .presentation-progress span { display: block; width: 0; height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent-2)); transition: width .35s; }
 .presentation-content { padding: 18px 18px 10px; }
@@ -356,7 +356,7 @@ button.related-item, button.connection-item { width: 100%; cursor: pointer; }
 
 /* Popovers and modals */
 .popover { position: fixed; z-index: 120; width: 320px; padding: 14px; border: 1px solid var(--line-strong); border-radius: 14px; background: rgba(15,20,29,.98); box-shadow: var(--shadow); }
-.filter-popover { right: 116px; top: 58px; }
+.filter-popover { right: 116px; top: 72px; }
 .popover-header, .modal-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
 .popover-header h2, .modal-header h2 { font-size: 17px; }
 .modal-header p { margin-top: 5px; color: var(--text-3); font-size: 10px; }
@@ -377,7 +377,7 @@ button.related-item, button.connection-item { width: 100%; cursor: pointer; }
 .toggle-row input:checked + .toggle-control { background: var(--accent); }
 .toggle-row input:checked + .toggle-control::after { transform: translateX(15px); background: white; }
 .popover-actions, .modal-actions { display: flex; align-items: center; justify-content: flex-end; gap: 7px; padding-top: 10px; border-top: 1px solid var(--line); }
-.modal-backdrop, .command-backdrop, .shortcut-backdrop { position: fixed; inset: 0; z-index: 150; display: grid; place-items: center; padding: 22px; background: rgba(3,5,9,.7); backdrop-filter: blur(9px); }
+.modal-backdrop, .command-backdrop, .shortcut-backdrop { position: fixed; inset: 0; z-index: 150; display: grid; place-items: center; padding: 22px; background: rgba(3,5,9,.62); }
 .modal-card, .shortcut-card { width: min(640px, 100%); border: 1px solid var(--line-strong); border-radius: 18px; background: var(--surface); box-shadow: var(--shadow); }
 .source-modal-card { padding: 20px; }
 .source-type-tabs { display: grid; grid-template-columns: repeat(3,1fr); gap: 7px; margin: 18px 0; }
@@ -468,7 +468,7 @@ button.related-item, button.connection-item { width: 100%; cursor: pointer; }
     .context-panel { right: 0; transform: translateX(103%); }
     .context-panel.open { transform: translateX(0); }
     .brand-copy, .project-switcher { display: none; }
-    .topbar { grid-template-columns: auto minmax(160px,1fr) auto; gap: 8px; padding: 0 8px; }
+    .topbar { grid-template-columns: auto minmax(160px,1fr) auto; gap: 8px; margin-inline: 8px; padding: 0 8px; }
     .topbar-actions .primary-button { display: none; }
     .graph-toolbar { bottom: 12px; }
     .minimap-shell { display: none !important; }
@@ -479,10 +479,10 @@ button.related-item, button.connection-item { width: 100%; cursor: pointer; }
 }
 
 @media (max-width: 560px) {
-    :root { --topbar-height: 56px; --statusbar-height: 40px; }
+    :root { --topbar-height: 66px; --statusbar-height: 40px; }
     .command-trigger span, .command-trigger kbd { display: none; }
     .command-trigger { justify-self: end; width: 38px; padding: 0; justify-content: center; }
-    .topbar { grid-template-columns: auto 1fr auto; }
+    .topbar { min-height: 50px; grid-template-columns: auto 1fr auto; margin-top: 7px; border-radius: 25px; }
     .topbar-actions .icon-button:not(.mobile-only) { display: none; }
     .canvas-header { align-items: flex-start; flex-direction: column; gap: 7px; min-height: 84px; padding: 10px 12px; }
     .canvas-header h1 { width: calc(100vw - 24px); font-size: 15px; }
@@ -503,7 +503,7 @@ button.related-item, button.connection-item { width: 100%; cursor: pointer; }
     .activity-drawer { padding: 12px; }
     .pipeline-grid { grid-template-columns: 1fr; max-height: 180px; overflow-y: auto; }
     .activity-log { display: none; }
-    .filter-popover { left: 8px; right: 8px; top: 52px; width: auto; }
+    .filter-popover { left: 8px; right: 8px; top: 64px; width: auto; }
     .source-type-tabs { grid-template-columns: 1fr; }
     .source-type-tab { min-height: 50px; }
     .source-modal-card { max-height: calc(100dvh - 24px); overflow-y: auto; padding: 15px; }
