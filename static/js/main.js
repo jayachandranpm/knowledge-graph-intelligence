@@ -141,8 +141,15 @@ document.addEventListener('DOMContentLoaded', () => {
         $('#save-view-button').addEventListener('click', saveCurrentView);
         $('#keyboard-help-button').addEventListener('click', () => openOverlay('shortcut-modal'));
         $('#sidebar-toggle').addEventListener('click', () => $('#source-sidebar').classList.toggle('open'));
+        $('#sidebar-close').addEventListener('click', () => {
+            $('#source-sidebar').classList.remove('open');
+            setActivePage('graph');
+        });
         $('#context-toggle').addEventListener('click', () => elements.contextPanel.classList.toggle('open'));
-        $('#context-close').addEventListener('click', () => elements.contextPanel.classList.remove('open'));
+        $('#context-close').addEventListener('click', () => {
+            elements.contextPanel.classList.remove('open');
+            setActivePage('graph');
+        });
 
         $$('.mode-button').forEach(button => button.addEventListener('click', () => setGraphMode(button.dataset.mode)));
         $('#zoom-in').addEventListener('click', () => graph.zoomBy(1.28));
@@ -523,7 +530,8 @@ document.addEventListener('DOMContentLoaded', () => {
         state.selectedNode = state.graphData.nodes.find(item => String(item.id) === String(node.id)) || node;
         renderInspector();
         setContextTab('inspector');
-        if (window.innerWidth <= 820) elements.contextPanel.classList.add('open');
+        $('#source-sidebar').classList.remove('open');
+        elements.contextPanel.classList.add('open');
         if (state.compareMode || multi) addToComparison(node.id);
     }
 
@@ -599,7 +607,8 @@ document.addEventListener('DOMContentLoaded', () => {
         graph.zoomToNode(id);
         renderInspector();
         setContextTab('inspector');
-        if (window.innerWidth <= 820) elements.contextPanel.classList.add('open');
+        $('#source-sidebar').classList.remove('open');
+        elements.contextPanel.classList.add('open');
     }
 
     async function expandNode(node) {
@@ -855,10 +864,12 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         if (page === 'assistant') {
+            $('#source-sidebar').classList.remove('open');
             setContextTab('assistant');
-            if (window.innerWidth <= 820) elements.contextPanel.classList.add('open');
+            elements.contextPanel.classList.add('open');
             return;
         }
+        elements.contextPanel.classList.remove('open');
         setContextTab('inspector');
         showSidebarSection(page);
     }
@@ -866,7 +877,9 @@ document.addEventListener('DOMContentLoaded', () => {
     function showSidebarSection(section) {
         setActivePage(section);
         $$('.sidebar-section').forEach(panel => panel.classList.toggle('active', panel.dataset.sidebarSection === section));
-        if (window.innerWidth <= 820) $('#source-sidebar').classList.add('open');
+        const labels = { sources: 'Research sources', saved: 'Saved views', history: 'Recent research' };
+        $('#source-drawer-title').textContent = labels[section] || 'Workspace';
+        $('#source-sidebar').classList.add('open');
     }
 
     function openCommandPalette() {

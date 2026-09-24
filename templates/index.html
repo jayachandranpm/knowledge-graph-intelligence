@@ -3,13 +3,13 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="theme-color" content="#090c12">
+    <meta name="theme-color" content="#f2f3f4">
     <meta name="description" content="Build, explore, and explain trustworthy knowledge graphs.">
     <title>Graphiti — Knowledge Graph Intelligence</title>
     <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
     <link rel="preconnect" href="https://use.hugeicons.com" crossorigin>
     <link rel="stylesheet" href="https://use.hugeicons.com/font/icons.css">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=20260924-2">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=20260924-3">
 </head>
 <body>
     <a class="skip-link" href="#graph-workspace">Skip to graph workspace</a>
@@ -42,6 +42,10 @@
 
         <div class="workspace">
             <aside class="source-sidebar" id="source-sidebar" aria-label="Research workspace">
+                <div class="drawer-heading">
+                    <div><span class="eyebrow">Workspace</span><strong id="source-drawer-title">Research sources</strong></div>
+                    <button class="mini-button" id="sidebar-close" type="button" aria-label="Close workspace panel"><i data-lucide="x"></i></button>
+                </div>
                 <div class="sidebar-scroll">
                     <button class="new-graph-button" id="new-graph-button" type="button">
                         <span class="new-graph-icon"><i data-lucide="sparkles"></i></span>
@@ -99,7 +103,7 @@
             </main>
 
             <aside class="context-panel" id="context-panel" aria-label="Entity details and assistant">
-                <div class="context-tabs" role="tablist"><button class="context-tab active" role="tab" aria-selected="true" data-context-tab="inspector" type="button"><i data-lucide="network"></i> Inspector</button><button class="context-tab" role="tab" aria-selected="false" data-context-tab="assistant" type="button"><i data-lucide="sparkles"></i> Ask AI</button><button class="icon-button mobile-only" id="context-close" type="button" aria-label="Close inspector"><i data-lucide="x"></i></button></div>
+                <div class="context-tabs" role="tablist"><button class="context-tab active" role="tab" aria-selected="true" data-context-tab="inspector" type="button"><i data-lucide="network"></i> Inspector</button><button class="context-tab" role="tab" aria-selected="false" data-context-tab="assistant" type="button"><i data-lucide="sparkles"></i> Ask AI</button><button class="icon-button" id="context-close" type="button" aria-label="Close inspector"><i data-lucide="x"></i></button></div>
                 <div class="context-view active" data-context-view="inspector">
                     <div class="inspector-empty" id="inspector-empty"><img class="inspector-empty-illustration" src="{{ url_for('static', filename='assets/undraw/select-entity.svg') }}" alt="" loading="lazy"><h2>Select an entity</h2><p>Inspect its connections, review supporting sources, or ask the assistant to explain why it matters.</p><div class="inspector-tip"><kbd>⇧</kbd> + click to compare entities</div></div>
                     <div class="entity-inspector hidden" id="entity-inspector">
@@ -153,7 +157,7 @@
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-    <script src="{{ url_for('static', filename='js/graph.js') }}?v=20260924-2"></script>
-    <script src="{{ url_for('static', filename='js/main.js') }}?v=20260924-2"></script>
+    <script src="{{ url_for('static', filename='js/graph.js') }}?v=20260924-3"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}?v=20260924-3"></script>
 </body>
 </html>
