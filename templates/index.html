@@ -1,439 +1,155 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Graphiti.ai - Knowledge Graph Intelligence</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://d3js.org/d3.v7.min.js"></script>
-    <link
-        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
-        rel="stylesheet">
-    <link rel="stylesheet" href="/static/css/style.css?v=20260922-2">
-    <!-- Lucide Icons -->
-    <script src="https://unpkg.com/lucide@latest"></script>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#090c12">
+    <meta name="description" content="Build, explore, and explain trustworthy knowledge graphs.">
+    <title>Graphiti — Knowledge Graph Intelligence</title>
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+    <link rel="preconnect" href="https://use.hugeicons.com" crossorigin>
+    <link rel="stylesheet" href="https://use.hugeicons.com/font/icons.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=20260924-2">
 </head>
-
-<body class="bg-[#050505] text-gray-100 font-sans overflow-hidden h-screen flex">
-
-    <!-- GLOBAL SIDEBAR -->
-    <nav class="bg-[#09090b] border-r border-gray-800/50 flex flex-col shrink-0 w-16 transition-all duration-300 z-50"
-        id="sidebar">
-        <div class="h-16 flex items-center justify-center border-b border-gray-800/50 relative">
-            <div
-                class="w-8 h-8 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center shadow-lg shadow-blue-500/20 shrink-0">
-                <i data-lucide="network" class="w-5 h-5 text-white"></i>
+<body>
+    <a class="skip-link" href="#graph-workspace">Skip to graph workspace</a>
+    <div id="app-shell" class="app-shell">
+        <header class="topbar">
+            <div class="brand-group">
+                <button class="icon-button mobile-only" id="sidebar-toggle" aria-label="Open workspace navigation"><i data-lucide="panel-left"></i></button>
+                <a class="brand" href="#" aria-label="Graphiti home">
+                    <span class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></span>
+                    <span class="brand-copy"><strong>Graphiti</strong><small>Intelligence workspace</small></span>
+                </a>
+                <span class="topbar-divider" aria-hidden="true"></span>
+                <button class="project-switcher" id="project-switcher" type="button"><span class="project-indicator"></span><span id="project-name">Untitled research</span><i data-lucide="chevron-down"></i></button>
             </div>
-            <button id="sidebar-toggle"
-                class="absolute -right-3 top-1/2 -translate-y-1/2 bg-gray-800 border border-gray-700 text-gray-400 hover:text-white rounded-full p-1.5 shadow-md z-50 flex items-center justify-center transition-transform hover:scale-110">
-                <i data-lucide="menu" class="w-3 h-3"></i>
-            </button>
+            <button class="command-trigger" id="command-trigger" type="button" aria-label="Open command palette"><i data-lucide="search"></i><span>Search entities or run a command</span><kbd>⌘ K</kbd></button>
+            <div class="topbar-actions">
+                <div class="mode-switcher" role="group" aria-label="Graph layout">
+                    <button class="mode-button active" data-mode="explore" type="button">Explore</button>
+                    <button class="mode-button" data-mode="clusters" type="button">Clusters</button>
+                    <button class="mode-button" data-mode="timeline" type="button">Timeline</button>
+                    <button class="mode-button" data-mode="evidence" type="button">Evidence</button>
+                </div>
+                <button class="icon-button" id="filter-button" type="button" aria-label="Filter graph" aria-expanded="false"><i data-lucide="list-filter"></i><span class="action-label">Filter</span><span class="count-badge hidden" id="filter-count">0</span></button>
+                <button class="icon-button" id="share-button" type="button" aria-label="Copy a shareable graph summary"><i data-lucide="share-2"></i><span class="action-label">Share</span></button>
+                <button class="primary-button compact" id="export-button" type="button" disabled><i data-lucide="download"></i><span>Export</span></button>
+                <button class="icon-button mobile-only" id="context-toggle" aria-label="Open entity inspector"><i data-lucide="panel-right"></i></button>
+            </div>
+        </header>
+
+        <div class="workspace">
+            <aside class="source-sidebar" id="source-sidebar" aria-label="Research workspace">
+                <div class="sidebar-scroll">
+                    <button class="new-graph-button" id="new-graph-button" type="button">
+                        <span class="new-graph-icon"><i data-lucide="sparkles"></i></span>
+                        <span><strong>Build a new graph</strong><small>Topic, URL, or document</small></span><kbd>N</kbd>
+                    </button>
+                    <nav class="workspace-nav" aria-label="Workspace sections">
+                        <button class="nav-item active" data-section="sources" type="button"><i data-lucide="library"></i><span>Sources</span><span class="nav-count" id="sources-count">0</span></button>
+                        <button class="nav-item" data-section="saved" type="button"><i data-lucide="bookmark"></i><span>Saved views</span><span class="nav-count" id="saved-count">0</span></button>
+                        <button class="nav-item" data-section="history" type="button"><i data-lucide="history"></i><span>History</span><span class="nav-count" id="history-count">0</span></button>
+                    </nav>
+                    <section class="sidebar-section active" data-sidebar-section="sources">
+                        <div class="section-heading"><span>Research sources</span><button class="mini-button" id="add-source-button" type="button" aria-label="Add a source"><i data-lucide="plus"></i></button></div>
+                        <div class="source-list" id="source-list"><div class="sidebar-empty"><img class="sidebar-empty-illustration" src="{{ url_for('static', filename='assets/undraw/source-files.svg') }}" alt="" loading="lazy"><p>Your sources will appear here.</p></div></div>
+                    </section>
+                    <section class="sidebar-section" data-sidebar-section="saved">
+                        <div class="section-heading"><span>Saved views</span><button class="mini-button" id="save-view-button" type="button" aria-label="Save current view"><i data-lucide="plus"></i></button></div>
+                        <div class="saved-list" id="saved-list"><div class="sidebar-empty"><img class="sidebar-empty-illustration" src="{{ url_for('static', filename='assets/undraw/saved-views.svg') }}" alt="" loading="lazy"><p>Save a useful graph arrangement.</p></div></div>
+                    </section>
+                    <section class="sidebar-section" data-sidebar-section="history">
+                        <div class="section-heading"><span>Recent research</span></div>
+                        <div class="history-list" id="history-list"><div class="sidebar-empty"><img class="sidebar-empty-illustration" src="{{ url_for('static', filename='assets/undraw/history-timeline.svg') }}" alt="" loading="lazy"><p>Generated graphs will be available here.</p></div></div>
+                    </section>
+                </div>
+                <div class="sidebar-footer">
+                    <button class="text-button" id="keyboard-help-button" type="button"><i data-lucide="keyboard"></i> Shortcuts</button>
+                    <span class="connection-state"><span id="connection-dot"></span><span id="connection-label">Checking service</span></span>
+                </div>
+            </aside>
+
+            <main class="graph-workspace" id="graph-workspace" tabindex="-1">
+                <div class="canvas-header">
+                    <div><div class="eyebrow" id="graph-eyebrow">Knowledge map</div><h1 id="graph-title">Start with a question worth exploring</h1></div>
+                    <div class="graph-metrics" aria-live="polite">
+                        <span><strong id="node-count">0</strong> entities</span><span><strong id="link-count">0</strong> relationships</span><span class="quality-indicator"><i data-lucide="shield-check"></i><strong id="source-quality">—</strong> evidence</span>
+                    </div>
+                </div>
+                <div class="graph-stage" id="graph-stage">
+                    <div id="d3-graph" class="graph-canvas" role="application" tabindex="0" aria-label="Interactive knowledge graph. Use arrow keys to move between connected entities."></div>
+                    <div class="empty-state" id="empty-state">
+                        <div class="empty-visual" aria-hidden="true"><img src="{{ url_for('static', filename='assets/undraw/knowledge-connection.svg') }}" alt=""></div>
+                        <div class="empty-copy"><span class="status-pill"><i data-lucide="wand-sparkles"></i> Research workspace ready</span><h2>Turn scattered information into a map you can question.</h2><p>Search a topic, paste an article, or import a document. Graphiti finds the entities, connects the evidence, and gives you an explorable knowledge graph.</p></div>
+                        <div class="start-composer"><i data-lucide="search"></i><input id="topic-input" maxlength="200" autocomplete="off" value="Zoho Corporation" aria-label="Research topic" placeholder="Try “renewable energy supply chain”…"><button class="primary-button" id="start-button" type="button"><span>Build graph</span><i data-lucide="arrow-right"></i></button></div>
+                        <div class="quick-starts" aria-label="Suggested topics"><span>Explore an example</span><button data-topic="Zoho Corporation" type="button">Zoho</button><button data-topic="SpaceX" type="button">SpaceX</button><button data-topic="Quantum computing" type="button">Quantum computing</button><button data-topic="Generative AI ecosystem" type="button">Generative AI</button></div>
+                    </div>
+                    <div class="graph-toolbar" aria-label="Graph controls">
+                        <button class="tool-button" id="zoom-in" type="button" aria-label="Zoom in"><i data-lucide="plus"></i></button><button class="tool-button" id="zoom-out" type="button" aria-label="Zoom out"><i data-lucide="minus"></i></button><button class="tool-button" id="zoom-fit" type="button" aria-label="Fit graph to view"><i data-lucide="scan"></i></button><span class="toolbar-divider"></span><button class="tool-button" id="lasso-button" type="button" aria-label="Select multiple entities" aria-pressed="false"><i data-lucide="mouse-pointer-2"></i></button><button class="tool-button" id="undo-button" type="button" aria-label="Undo graph change" disabled><i data-lucide="undo-2"></i></button><button class="tool-button" id="redo-button" type="button" aria-label="Redo graph change" disabled><i data-lucide="redo-2"></i></button>
+                    </div>
+                    <div class="minimap-shell hidden" id="minimap-shell"><div class="minimap-label">Overview</div><svg id="minimap" aria-hidden="true"></svg></div>
+                    <div class="compare-tray hidden" id="compare-tray"><div class="compare-heading"><i data-lucide="git-compare-arrows"></i><span>Select two entities to compare</span></div><div class="compare-slots"><button class="compare-slot" data-slot="0" type="button">Entity A</button><i data-lucide="arrow-left-right"></i><button class="compare-slot" data-slot="1" type="button">Entity B</button></div><button class="mini-button" id="close-compare" type="button" aria-label="Close comparison"><i data-lucide="x"></i></button></div>
+                    <div class="presentation-card hidden" id="presentation-card" role="status"><div class="presentation-progress"><span id="presentation-progress"></span></div><div class="presentation-content"><span class="eyebrow">Guided story</span><h2 id="presentation-title">Entity</h2><p id="presentation-details">Details</p></div><div class="presentation-actions"><button class="tool-button" id="presentation-prev" type="button" aria-label="Previous entity"><i data-lucide="chevron-left"></i></button><button class="tool-button" id="presentation-play" type="button" aria-label="Pause presentation"><i data-lucide="pause"></i></button><button class="tool-button" id="presentation-next" type="button" aria-label="Next entity"><i data-lucide="chevron-right"></i></button><button class="text-button" id="presentation-close" type="button">Exit</button></div></div>
+                </div>
+            </main>
+
+            <aside class="context-panel" id="context-panel" aria-label="Entity details and assistant">
+                <div class="context-tabs" role="tablist"><button class="context-tab active" role="tab" aria-selected="true" data-context-tab="inspector" type="button"><i data-lucide="network"></i> Inspector</button><button class="context-tab" role="tab" aria-selected="false" data-context-tab="assistant" type="button"><i data-lucide="sparkles"></i> Ask AI</button><button class="icon-button mobile-only" id="context-close" type="button" aria-label="Close inspector"><i data-lucide="x"></i></button></div>
+                <div class="context-view active" data-context-view="inspector">
+                    <div class="inspector-empty" id="inspector-empty"><img class="inspector-empty-illustration" src="{{ url_for('static', filename='assets/undraw/select-entity.svg') }}" alt="" loading="lazy"><h2>Select an entity</h2><p>Inspect its connections, review supporting sources, or ask the assistant to explain why it matters.</p><div class="inspector-tip"><kbd>⇧</kbd> + click to compare entities</div></div>
+                    <div class="entity-inspector hidden" id="entity-inspector">
+                        <div class="entity-heading"><div class="entity-avatar" id="entity-avatar"><i data-lucide="circle-dot"></i></div><div><span class="entity-type" id="entity-type">Concept</span><h2 id="entity-label">Entity</h2></div><button class="mini-button" id="close-inspector" type="button" aria-label="Clear entity selection"><i data-lucide="x"></i></button></div>
+                        <div class="entity-actions"><button class="secondary-button" id="expand-entity" type="button"><i data-lucide="unfold-horizontal"></i> Expand</button><button class="secondary-button" id="compare-entity" type="button"><i data-lucide="git-compare-arrows"></i> Compare</button><button class="secondary-button" id="ask-entity" type="button"><i data-lucide="sparkles"></i> Ask AI</button></div>
+                        <div class="inspector-tabs" role="tablist"><button class="inspector-tab active" data-inspector-tab="overview" type="button">Overview</button><button class="inspector-tab" data-inspector-tab="connections" type="button">Connections <span id="connection-count">0</span></button><button class="inspector-tab" data-inspector-tab="evidence" type="button">Evidence</button></div>
+                        <div class="inspector-pane active" data-inspector-pane="overview"><p class="entity-description" id="entity-description"></p><div class="stat-grid"><div><span>Connections</span><strong id="entity-degree">0</strong></div><div><span>Influence</span><strong id="entity-influence">—</strong></div><div><span>Confidence</span><strong id="entity-confidence">—</strong></div></div><section class="detail-section"><div class="detail-heading"><span>Related entities</span><button class="text-button" id="show-all-related" type="button">Show all</button></div><div class="related-list" id="related-list"></div></section></div>
+                        <div class="inspector-pane" data-inspector-pane="connections"><div class="connection-list" id="connection-list"></div></div>
+                        <div class="inspector-pane" data-inspector-pane="evidence"><div class="evidence-summary"><i data-lucide="shield-check"></i><div><strong>Source-backed context</strong><span>Review the sources used to build this graph.</span></div></div><div class="evidence-list" id="evidence-list"></div></div>
+                    </div>
+                </div>
+                <div class="context-view assistant-view" data-context-view="assistant">
+                    <div class="assistant-header"><div><span class="eyebrow">Context-aware assistant</span><h2>Question the graph</h2></div><span class="assistant-state" id="assistant-state"><span></span> Ready</span></div>
+                    <div class="prompt-chips" id="prompt-chips"><button type="button">Summarize this graph</button><button type="button">What are the strongest relationships?</button><button type="button">Find possible contradictions</button></div>
+                    <div class="chat-history" id="chat-history" aria-live="polite"><div class="assistant-welcome"><span><i data-lucide="sparkles"></i></span><p>I answer from the entities, relationships, and evidence in your current graph. Citations take you directly to the referenced entity.</p></div></div>
+                    <div class="chat-composer"><textarea id="chat-input" rows="1" maxlength="4000" disabled placeholder="Build a graph to start asking questions…" aria-label="Ask the knowledge graph"></textarea><button class="send-button" id="send-button" type="button" disabled aria-label="Send question"><i data-lucide="arrow-up"></i></button><span class="composer-hint">Enter to send · Shift + Enter for a new line</span></div>
+                </div>
+            </aside>
         </div>
 
-        <div class="flex-1 py-6 flex flex-col gap-1.5 px-3">
-            <button
-                class="sidebar-item active group relative p-3 rounded-lg text-blue-500 bg-white/5 flex items-center gap-3 overflow-hidden whitespace-nowrap"
-                data-view="DASHBOARD" title="Overview">
-                <i data-lucide="layout-dashboard" class="w-5 h-5 shrink-0"></i>
-                <span
-                    class="sidebar-label opacity-0 transition-opacity duration-300 text-sm font-medium">Dashboard</span>
-            </button>
-            <button
-                class="sidebar-item group relative p-3 rounded-lg text-gray-400 hover:text-gray-200 hover:bg-white/5 flex items-center gap-3 overflow-hidden whitespace-nowrap"
-                data-view="PIPELINE" title="Pipeline">
-                <i data-lucide="git-commit" class="w-5 h-5 shrink-0"></i>
-                <span
-                    class="sidebar-label opacity-0 transition-opacity duration-300 text-sm font-medium">Pipeline</span>
-            </button>
-            <button
-                class="sidebar-item group relative p-3 rounded-lg text-gray-400 hover:text-gray-200 hover:bg-white/5 flex items-center gap-3 overflow-hidden whitespace-nowrap"
-                data-view="GRAPH" title="Graph Explorer">
-                <i data-lucide="network" class="w-5 h-5 shrink-0"></i>
-                <span class="sidebar-label opacity-0 transition-opacity duration-300 text-sm font-medium">Graph</span>
-            </button>
-            <button
-                class="sidebar-item group relative p-3 rounded-lg text-gray-400 hover:text-gray-200 hover:bg-white/5 flex items-center gap-3 overflow-hidden whitespace-nowrap"
-                data-view="CHAT" title="Intelligence">
-                <i data-lucide="message-square" class="w-5 h-5 shrink-0"></i>
-                <span
-                    class="sidebar-label opacity-0 transition-opacity duration-300 text-sm font-medium">Assistant</span>
-            </button>
+        <footer class="statusbar"><div class="status-primary"><span class="status-dot" id="status-dot"></span><strong id="status-label">Ready to research</strong><span id="status-detail">Add a topic or source to begin.</span></div><div class="status-actions"><button class="text-button" id="compare-mode-button" type="button"><i data-lucide="git-compare-arrows"></i> Compare</button><button class="text-button" id="presentation-button" type="button" disabled><i data-lucide="play"></i> Present</button><button class="activity-button" id="activity-button" type="button" aria-expanded="false"><span class="activity-state"><span id="activity-pulse"></span><span id="activity-summary">No active tasks</span></span><i data-lucide="chevron-up"></i></button></div></footer>
+
+        <section class="activity-drawer" id="activity-drawer" aria-label="Graph build activity" aria-hidden="true">
+            <div class="activity-header"><div><span class="eyebrow">Activity</span><h2>Knowledge extraction</h2></div><div class="activity-header-actions"><button class="text-button hidden" id="cancel-build" type="button"><i data-lucide="square"></i> Cancel</button><button class="text-button hidden" id="retry-build" type="button"><i data-lucide="rotate-ccw"></i> Retry</button><button class="text-button" id="clear-activity" type="button">Clear completed</button><button class="mini-button" id="close-activity" type="button" aria-label="Close activity drawer"><i data-lucide="x"></i></button></div></div>
+            <div class="pipeline-grid" id="pipeline-grid">
+                <article class="pipeline-card" data-step="SEARCH"><span class="pipeline-icon"><i data-lucide="search"></i></span><div><strong>Find sources</strong><small>Waiting to start</small></div><span class="pipeline-state">Queued</span></article>
+                <article class="pipeline-card" data-step="SCRAPE"><span class="pipeline-icon"><i data-lucide="scan-text"></i></span><div><strong>Read evidence</strong><small>Waiting for sources</small></div><span class="pipeline-state">Queued</span></article>
+                <article class="pipeline-card" data-step="EXTRACT"><span class="pipeline-icon"><i data-lucide="combine"></i></span><div><strong>Extract entities</strong><small>Waiting for evidence</small></div><span class="pipeline-state">Queued</span></article>
+                <article class="pipeline-card" data-step="INDEX"><span class="pipeline-icon"><i data-lucide="database"></i></span><div><strong>Persist graph</strong><small>Waiting for entities</small></div><span class="pipeline-state">Queued</span></article>
+            </div>
+            <div class="activity-log" id="activity-log" aria-live="polite"></div>
+        </section>
+
+        <div class="popover filter-popover hidden" id="filter-popover" role="dialog" aria-label="Filter graph"><div class="popover-header"><div><span class="eyebrow">Filter graph</span><h2>Entity visibility</h2></div><button class="mini-button" data-close-popover="filter-popover" type="button" aria-label="Close graph filters"><i data-lucide="x"></i></button></div><div class="filter-types" id="filter-types"></div><label class="range-field"><span>Minimum connections <strong id="degree-value">0</strong></span><input type="range" id="degree-filter" min="0" max="10" value="0"></label><label class="toggle-row"><span><strong>Show relationship labels</strong><small>Display labels on graph edges</small></span><input type="checkbox" id="relationship-label-toggle"><span class="toggle-control"></span></label><div class="popover-actions"><button class="text-button" id="reset-filters" type="button">Reset</button><button class="primary-button compact" id="apply-filters" type="button">Apply filters</button></div></div>
+
+        <div class="modal-backdrop hidden" id="source-modal" role="dialog" aria-modal="true" aria-labelledby="source-modal-title">
+            <div class="modal-card source-modal-card">
+                <div class="modal-header"><div><span class="eyebrow">New research</span><h2 id="source-modal-title">Build a knowledge graph</h2><p>Choose the most useful starting point. You can add more sources later.</p></div><button class="mini-button" data-close-modal="source-modal" type="button" aria-label="Close"><i data-lucide="x"></i></button></div>
+                <div class="source-type-tabs" role="tablist"><button class="source-type-tab active" data-source-type="topic" type="button"><i data-lucide="search"></i><span><strong>Topic</strong><small>Discover sources</small></span></button><button class="source-type-tab" data-source-type="url" type="button"><i data-lucide="link-2"></i><span><strong>Web page</strong><small>Paste a URL</small></span></button><button class="source-type-tab" data-source-type="file" type="button"><i data-lucide="file-up"></i><span><strong>Document</strong><small>Text, CSV, JSON</small></span></button></div>
+                <div class="source-pane active" data-source-pane="topic"><label class="field-label" for="modal-topic-input">What do you want to understand?</label><div class="large-input"><i data-lucide="search"></i><input id="modal-topic-input" maxlength="200" placeholder="e.g. The global semiconductor supply chain"></div></div>
+                <div class="source-pane" data-source-pane="url"><label class="field-label" for="url-input">Article or public web page</label><div class="large-input"><i data-lucide="link-2"></i><input id="url-input" type="url" placeholder="https://example.com/article"></div><label class="field-label secondary-label" for="url-topic-input">Graph title</label><div class="large-input"><i data-lucide="type"></i><input id="url-topic-input" maxlength="200" placeholder="Optional — inferred from the URL"></div></div>
+                <div class="source-pane" data-source-pane="file"><label class="drop-zone" for="file-input" id="drop-zone"><i data-lucide="cloud-upload"></i><strong>Choose a document or drop it here</strong><span>TXT, Markdown, CSV, or JSON · up to 2 MB</span><input id="file-input" type="file" accept=".txt,.md,.markdown,.csv,.json,text/plain,text/csv,application/json"></label><div class="file-preview hidden" id="file-preview"><i data-lucide="file-text"></i><div><strong id="file-name"></strong><span id="file-meta"></span></div><button class="mini-button" id="remove-file" type="button" aria-label="Remove selected document"><i data-lucide="x"></i></button></div><label class="field-label secondary-label" for="file-topic-input">Graph title</label><div class="large-input"><i data-lucide="type"></i><input id="file-topic-input" maxlength="200" placeholder="Name this research graph"></div></div>
+                <div class="modal-actions"><button class="text-button" data-close-modal="source-modal" type="button">Cancel</button><button class="primary-button" id="modal-build-button" type="button"><span>Build graph</span><i data-lucide="arrow-right"></i></button></div>
+            </div>
         </div>
 
-
-    </nav>
-
-    <!-- MAIN CONTENT AREA -->
-    <div class="flex-1 flex overflow-hidden relative">
-
-        <!-- LEFT PANEL: PIPELINE & CONFIG -->
-        <aside
-            class="flex flex-col bg-[#0B0C10] border-r border-gray-800/50 w-[360px] shrink-0 transition-all duration-500"
-            id="left-panel">
-            <div
-                class="h-16 flex items-center justify-between px-6 border-b border-gray-800/50 bg-[#0B0C10]/80 backdrop-blur-sm sticky top-0 z-20">
-                <div class="flex items-center gap-2.5">
-                    <i data-lucide="activity" class="w-5 h-5 text-blue-500"></i>
-                    <h1 class="font-semibold text-sm tracking-wide text-gray-200 uppercase">Command Center</h1>
-                </div>
-                <button
-                    class="view-control p-1.5 text-gray-400 hover:text-white hover:bg-white/10 rounded transition-colors"
-                    data-target="PIPELINE">
-                    <i data-lucide="maximize-2" class="w-4 h-4"></i>
-                </button>
-            </div>
-
-            <div class="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-800">
-                <!-- Config & Input -->
-                <div class="border-b border-gray-800/50 collapsible-section">
-                    <div
-                        class="p-4 flex items-center justify-between cursor-pointer section-header hover:bg-white/5 transition-colors">
-                        <label
-                            class="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-2 cursor-pointer">
-                            <i data-lucide="search" class="w-3 h-3"></i> Configuration
-                        </label>
-                        <div class="section-toggle-icon transition-transform duration-300">
-                            <i data-lucide="chevron-down" class="w-4 h-4 text-gray-500"></i>
-                        </div>
-                    </div>
-
-                    <div class="px-6 pb-6 section-content transition-all duration-300 overflow-hidden">
-                        <label class="text-[10px] text-gray-500 font-medium mb-2 block">Target Topic</label>
-                        <div class="relative mb-4 group">
-                            <input type="text" id="topic-input" value="Zoho Corporation" maxlength="200"
-                                class="w-full bg-[#15161C] border border-gray-800 text-sm rounded-xl pl-4 pr-10 py-3 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/20 transition-all text-white placeholder-gray-600 shadow-inner"
-                                placeholder="Enter company or topic...">
-                        </div>
-
-                        <!-- Suggested Topics -->
-                        <div class="flex flex-wrap gap-2 mb-6">
-                            <button
-                                class="suggested-topic px-3 py-1.5 rounded-lg bg-gray-800/50 hover:bg-gray-800 border border-gray-700/50 hover:border-gray-600 text-[10px] font-medium text-gray-400 hover:text-gray-200 transition-all"
-                                data-topic="Zoho Corporation">Zoho</button>
-                            <button
-                                class="suggested-topic px-3 py-1.5 rounded-lg bg-gray-800/50 hover:bg-gray-800 border border-gray-700/50 hover:border-gray-600 text-[10px] font-medium text-gray-400 hover:text-gray-200 transition-all"
-                                data-topic="SpaceX Starship">SpaceX</button>
-                            <button
-                                class="suggested-topic px-3 py-1.5 rounded-lg bg-gray-800/50 hover:bg-gray-800 border border-gray-700/50 hover:border-gray-600 text-[10px] font-medium text-gray-400 hover:text-gray-200 transition-all"
-                                data-topic="Quantum Computing">Quantum</button>
-                            <button
-                                class="suggested-topic px-3 py-1.5 rounded-lg bg-gray-800/50 hover:bg-gray-800 border border-gray-700/50 hover:border-gray-600 text-[10px] font-medium text-gray-400 hover:text-gray-200 transition-all"
-                                data-topic="Generative AI">GenAI</button>
-                        </div>
-
-                        <button id="start-btn"
-                            class="w-full py-3.5 rounded-xl flex items-center justify-center gap-2 font-semibold text-sm transition-all shadow-lg transform active:scale-[0.98] bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white shadow-blue-500/20 hover:shadow-blue-500/30">
-                            <i data-lucide="zap" class="w-4 h-4 fill-current"></i>
-                            Start Extraction Engine
-                        </button>
-                    </div>
-
-                    <!-- Pipeline Visualizer -->
-                    <div class="border-b border-gray-800/50 collapsible-section">
-                        <div
-                            class="p-4 flex items-center justify-between cursor-pointer section-header hover:bg-white/5 transition-colors">
-                            <div class="flex items-center gap-2">
-                                <h3 class="text-xs font-bold text-gray-500 uppercase tracking-wider">Process Status</h3>
-                                <span id="pipeline-status-badge"
-                                    class="hidden text-[10px] px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 animate-pulse">Live</span>
-                            </div>
-                            <div class="section-toggle-icon transition-transform duration-300">
-                                <i data-lucide="chevron-down" class="w-4 h-4 text-gray-500"></i>
-                            </div>
-                        </div>
-
-                        <div class="px-6 pb-6 section-content transition-all duration-300 overflow-hidden">
-
-                            <div class="space-y-4 relative" id="pipeline-steps">
-                                <!-- Vertical Line -->
-                                <div class="absolute left-[1.65rem] top-4 bottom-4 w-0.5 bg-gray-800/50 -z-10"></div>
-
-                                <!-- Steps will be generated by JS -->
-                                <div class="step-item relative flex items-center gap-4 p-3 rounded-xl border border-transparent"
-                                    data-step="SEARCH">
-                                    <div
-                                        class="relative z-10 w-10 h-10 rounded-full flex items-center justify-center border-2 bg-gray-800 border-gray-700 text-gray-500 transition-all duration-500">
-                                        <i data-lucide="globe" class="w-5 h-5"></i>
-                                    </div>
-                                    <div class="flex-1 min-w-0">
-                                        <span class="text-sm font-semibold tracking-tight text-gray-500">Web
-                                            Search</span>
-                                        <div class="h-1 w-full bg-gray-800 rounded-full overflow-hidden mt-1">
-                                            <div class="h-full w-0 bg-blue-500 transition-all duration-1000"></div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div class="step-item relative flex items-center gap-4 p-3 rounded-xl border border-transparent"
-                                    data-step="SCRAPE">
-                                    <div
-                                        class="relative z-10 w-10 h-10 rounded-full flex items-center justify-center border-2 bg-gray-800 border-gray-700 text-gray-500 transition-all duration-500">
-                                        <i data-lucide="share-2" class="w-5 h-5"></i>
-                                    </div>
-                                    <div class="flex-1 min-w-0">
-                                        <span class="text-sm font-semibold tracking-tight text-gray-500">Source
-                                            Reading</span>
-                                        <div class="h-1 w-full bg-gray-800 rounded-full overflow-hidden mt-1">
-                                            <div class="h-full w-0 bg-blue-500 transition-all duration-1000"></div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div class="step-item relative flex items-center gap-4 p-3 rounded-xl border border-transparent"
-                                    data-step="EXTRACT">
-                                    <div
-                                        class="relative z-10 w-10 h-10 rounded-full flex items-center justify-center border-2 bg-gray-800 border-gray-700 text-gray-500 transition-all duration-500">
-                                        <i data-lucide="cpu" class="w-5 h-5"></i>
-                                    </div>
-                                    <div class="flex-1 min-w-0">
-                                        <span class="text-sm font-semibold tracking-tight text-gray-500">Entity
-                                            Extraction</span>
-                                        <div class="h-1 w-full bg-gray-800 rounded-full overflow-hidden mt-1">
-                                            <div class="h-full w-0 bg-blue-500 transition-all duration-1000"></div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div class="step-item relative flex items-center gap-4 p-3 rounded-xl border border-transparent"
-                                    data-step="INDEX">
-                                    <div
-                                        class="relative z-10 w-10 h-10 rounded-full flex items-center justify-center border-2 bg-gray-800 border-gray-700 text-gray-500 transition-all duration-500">
-                                        <i data-lucide="database" class="w-5 h-5"></i>
-                                    </div>
-                                    <div class="flex-1 min-w-0">
-                                        <span class="text-sm font-semibold tracking-tight text-gray-500">Graph
-                                            Persistence</span>
-                                        <div class="h-1 w-full bg-gray-800 rounded-full overflow-hidden mt-1">
-                                            <div class="h-full w-0 bg-blue-500 transition-all duration-1000"></div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Export Button -->
-                        <div class="px-6 pb-6">
-                            <button id="export-btn"
-                                class="hidden w-full py-2.5 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white text-xs font-medium transition-colors flex items-center justify-center gap-2 border border-gray-700">
-                                <i data-lucide="download" class="w-3.5 h-3.5"></i> Export JSON
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Logs Footer -->
-                    <div class="border-t border-gray-800/50 bg-[#0B0C10] flex flex-col shrink-0 h-48">
-                        <div
-                            class="w-full flex items-center justify-between px-4 py-2.5 text-[11px] font-mono font-medium text-gray-500 border-b border-gray-800/50">
-                            <span class="flex items-center gap-2"><i data-lucide="terminal" class="w-3.5 h-3.5"></i>
-                                SYSTEM_OUTPUT_STREAM</span>
-                        </div>
-                        <div class="flex-1 bg-[#050505] overflow-y-auto p-3 font-mono text-[10px] space-y-1.5"
-                            id="console-logs">
-                            <div class="h-full flex items-center justify-center text-gray-700 italic font-medium"
-                                id="logs-placeholder">
-                                <span class="flex items-center gap-2 opacity-50"><i data-lucide="terminal"
-                                        class="w-4 h-4"></i>
-                                    System Idle - Awaiting Commands</span>
-                            </div>
-                        </div>
-                    </div>
-        </aside>
-
-        <!-- CENTER PANEL: GRAPH VISUALIZATION -->
-        <main class="flex-1 flex flex-col bg-[#050505] overflow-hidden relative" id="graph-container">
-            <!-- Top Bar -->
-            <div
-                class="h-16 absolute top-0 left-0 right-0 z-10 flex items-center justify-between px-6 pointer-events-none">
-                <div
-                    class="pointer-events-auto bg-[#0B0C10]/80 backdrop-blur-md px-4 py-1.5 rounded-full border border-gray-800/50 shadow-xl mt-4 flex items-center gap-3">
-                    <div class="w-2 h-2 rounded-full bg-gray-600" id="status-dot"></div>
-                    <span class="text-sm font-medium text-gray-200 tracking-tight" id="current-topic">Zoho
-                        Corporation</span>
-                    <span
-                        class="text-[10px] text-gray-500 border-l border-gray-700 pl-3 uppercase tracking-wider hidden"
-                        id="entity-count">0 Entities</span>
-                </div>
-
-                <div
-                    class="pointer-events-auto bg-[#0B0C10]/80 backdrop-blur-md p-1 rounded-lg border border-gray-800/50 shadow-xl mt-4">
-                    <button
-                        class="view-control p-1.5 text-gray-400 hover:text-white hover:bg-white/10 rounded transition-colors"
-                        data-target="GRAPH">
-                        <i data-lucide="maximize-2" class="w-4 h-4"></i>
-                    </button>
-                </div>
-            </div>
-
-            <!-- D3 Graph SVG -->
-            <div id="d3-graph" class="w-full h-full"></div>
-
-            <!-- Legend -->
-            <div id="graph-legend" class="absolute top-20 left-6 transition-all duration-300 ease-in-out z-20 w-48">
-                <div
-                    class="bg-gray-900/90 backdrop-blur-md border border-gray-800 shadow-2xl rounded-xl overflow-hidden p-4">
-                    <div class="flex items-center justify-between mb-3">
-                        <h4 class="font-bold uppercase tracking-wider text-gray-500 text-[10px] flex items-center gap-2 whitespace-nowrap overflow-hidden transition-all duration-300"
-                            id="legend-title">
-                            <i data-lucide="layers" class="w-3 h-3"></i> Entity Types
-                        </h4>
-                        <button id="toggle-legend"
-                            class="text-gray-400 hover:text-white transition-colors p-1 rounded hover:bg-white/10 shrink-0">
-                            <i data-lucide="chevron-left" class="w-3 h-3"></i>
-                        </button>
-                    </div>
-
-                    <div id="legend-content" class="space-y-2.5 animate-in fade-in slide-in-from-left-2 duration-200">
-                        <div class="flex items-center gap-2.5">
-                            <span class="w-2 h-2 rounded-full bg-blue-400 shadow-[0_0_8px_rgba(96,165,250,0.5)]"></span>
-                            <span class="text-xs text-gray-300 font-medium">Product</span>
-                        </div>
-                        <div class="flex items-center gap-2.5">
-                            <span
-                                class="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.5)]"></span>
-                            <span class="text-xs text-gray-300 font-medium">Feature</span>
-                        </div>
-                        <div class="flex items-center gap-2.5">
-                            <span
-                                class="w-2 h-2 rounded-full bg-purple-400 shadow-[0_0_8px_rgba(192,132,252,0.5)]"></span>
-                            <span class="text-xs text-gray-300 font-medium">Concept</span>
-                        </div>
-                        <div class="flex items-center gap-2.5">
-                            <span
-                                class="w-2 h-2 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.5)]"></span>
-                            <span class="text-xs text-gray-300 font-medium">Company</span>
-                        </div>
-                        <div class="flex items-center gap-2.5">
-                            <span class="w-2 h-2 rounded-full bg-red-400 shadow-[0_0_8px_rgba(248,113,113,0.5)]"></span>
-                            <span class="text-xs text-gray-300 font-medium">Person</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Node Inspector (Hidden by default) -->
-            <div id="node-inspector"
-                class="absolute top-20 right-6 z-20 w-64 hidden animate-in fade-in slide-in-from-right-4 duration-300">
-                <div
-                    class="bg-gray-900/90 backdrop-blur-md border border-gray-800 shadow-2xl rounded-xl overflow-hidden">
-                    <div class="p-4 border-b border-gray-800/50 flex justify-between items-start">
-                        <div>
-                            <h3 class="text-sm font-bold text-white mb-0.5" id="inspector-label">Node Label</h3>
-                            <span
-                                class="text-[10px] uppercase tracking-wider font-medium px-1.5 py-0.5 rounded bg-gray-800 text-gray-400"
-                                id="inspector-type">Type</span>
-                        </div>
-                        <button id="close-inspector" class="text-gray-500 hover:text-white transition-colors">
-                            <i data-lucide="x" class="w-3 h-3"></i>
-                        </button>
-                    </div>
-                    <div class="p-4 space-y-3">
-                        <p class="text-xs text-gray-400 leading-relaxed" id="inspector-details">
-                            Select a node to view its details.
-                        </p>
-                        <div class="pt-2 border-t border-gray-800/50 flex gap-2">
-                            <button id="inspector-expand-btn"
-                                class="flex-1 py-1.5 bg-blue-600/10 hover:bg-blue-600/20 text-blue-400 text-[10px] font-bold uppercase tracking-wide rounded border border-blue-600/20 transition-colors">
-                                Expand
-                            </button>
-                            <button id="inspector-chat-btn"
-                                class="flex-1 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-300 text-[10px] font-bold uppercase tracking-wide rounded border border-gray-700 transition-colors">
-                                Chat
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Zoom Controls -->
-            <div class="absolute bottom-6 right-6 flex flex-col gap-2 z-20">
-                <button id="zoom-in"
-                    class="p-2.5 bg-gray-900/80 backdrop-blur hover:bg-gray-800 text-white rounded-xl shadow-lg border border-gray-800 hover:border-gray-700 transition-all active:scale-95"
-                    title="Zoom In">
-                    <i data-lucide="zoom-in" class="w-5 h-5"></i>
-                </button>
-                <button id="zoom-out"
-                    class="p-2.5 bg-gray-900/80 backdrop-blur hover:bg-gray-800 text-white rounded-xl shadow-lg border border-gray-800 hover:border-gray-700 transition-all active:scale-95"
-                    title="Zoom Out">
-                    <i data-lucide="zoom-out" class="w-5 h-5"></i>
-                </button>
-                <button id="zoom-fit"
-                    class="p-2.5 bg-gray-900/80 backdrop-blur hover:bg-gray-800 text-white rounded-xl shadow-lg border border-gray-800 hover:border-gray-700 transition-all active:scale-95"
-                    title="Fit to Screen">
-                    <i data-lucide="maximize" class="w-5 h-5"></i>
-                </button>
-            </div>
-
-            <!-- Empty State -->
-            <div id="graph-empty-state"
-                class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                <div
-                    class="z-10 text-center p-8 bg-gray-900/40 backdrop-blur-md rounded-2xl border border-gray-800/50 shadow-2xl max-w-sm mx-4">
-                    <div
-                        class="w-16 h-16 bg-gray-800/50 rounded-2xl flex items-center justify-center mx-auto mb-6 border border-gray-700 shadow-inner">
-                        <i data-lucide="move" class="w-8 h-8 text-gray-400"></i>
-                    </div>
-                    <h3 class="text-xl font-semibold text-gray-200 mb-3 tracking-tight">Graph Canvas Ready</h3>
-                    <p class="text-sm text-gray-500 leading-relaxed">
-                        Initialize the knowledge extraction pipeline from the Command Center to populate this space.
-                    </p>
-                </div>
-            </div>
-        </main>
-
-        <!-- RIGHT PANEL: INTELLIGENCE UNIT -->
-        <aside
-            class="flex flex-col bg-[#0B0C10] border-l border-gray-800/50 w-[400px] shrink-0 transition-all duration-500"
-            id="right-panel">
-            <div
-                class="h-16 flex items-center px-6 border-b border-gray-800/50 bg-[#0B0C10]/80 backdrop-blur-sm sticky top-0 z-20 justify-between">
-                <div class="flex items-center gap-2.5">
-                    <i data-lucide="sparkles" class="w-5 h-5 text-indigo-500 fill-current"></i>
-                    <h2 class="font-semibold text-sm text-gray-200">AI Assistant</h2>
-                </div>
-                <button
-                    class="view-control p-1.5 text-gray-400 hover:text-white hover:bg-white/10 rounded transition-colors"
-                    data-target="CHAT">
-                    <i data-lucide="maximize-2" class="w-4 h-4"></i>
-                </button>
-            </div>
-
-            <!-- Chat History -->
-            <div class="flex-1 overflow-y-auto p-5 space-y-6 bg-[#0B0C10] scrollbar-thin scrollbar-thumb-gray-800"
-                id="chat-history">
-                <div class="h-full flex flex-col items-center justify-center text-center px-8 opacity-60">
-                    <div
-                        class="w-16 h-16 bg-gradient-to-br from-indigo-900/20 to-purple-900/20 rounded-2xl flex items-center justify-center mb-6 border border-indigo-500/20">
-                        <i data-lucide="bot" class="w-8 h-8 text-indigo-400"></i>
-                    </div>
-                    <h4 class="text-base font-bold text-gray-200 mb-2">Knowledge Graph Intelligence</h4>
-                    <p class="text-xs text-gray-500 leading-relaxed max-w-xs mx-auto">
-                        Ask questions to query the structural data, extracted relationships, and entity details directly
-                        from the graph.
-                    </p>
-                </div>
-            </div>
-
-            <!-- Input Area -->
-            <div class="p-5 border-t border-gray-800/50 bg-[#0B0C10]">
-                <div class="relative group">
-                    <input type="text" id="chat-input" placeholder="Waiting for Knowledge Graph..." disabled
-                        class="w-full bg-[#15161C] border border-gray-800 text-gray-200 rounded-xl pl-5 pr-12 py-4 text-sm focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all placeholder-gray-600 shadow-inner">
-                    <button id="send-btn" disabled
-                        class="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-indigo-600/10 hover:bg-indigo-600 text-indigo-500 hover:text-white rounded-lg transition-all disabled:opacity-0 disabled:scale-90">
-                        <i data-lucide="send" class="w-4 h-4"></i>
-                    </button>
-                </div>
-            </div>
-        </aside>
-
+        <div class="command-backdrop hidden" id="command-palette" role="dialog" aria-modal="true" aria-label="Command palette"><div class="command-card"><div class="command-input-row"><i data-lucide="search"></i><input id="command-input" autocomplete="off" placeholder="Search entities, views, or commands…"><kbd>Esc</kbd></div><div class="command-results" id="command-results"></div><div class="command-footer"><span><kbd>↑</kbd><kbd>↓</kbd> Navigate</span><span><kbd>↵</kbd> Select</span></div></div></div>
+        <div class="shortcut-backdrop hidden" id="shortcut-modal" role="dialog" aria-modal="true" aria-label="Keyboard shortcuts"><div class="shortcut-card"><div class="modal-header"><div><span class="eyebrow">Move faster</span><h2>Keyboard shortcuts</h2></div><button class="mini-button" data-close-modal="shortcut-modal" type="button" aria-label="Close keyboard shortcuts"><i data-lucide="x"></i></button></div><div class="shortcut-grid"><span>Command palette</span><kbd>⌘ K</kbd><span>New graph</span><kbd>N</kbd><span>Fit graph</span><kbd>F</kbd><span>Save view</span><kbd>⌘ S</kbd><span>Compare mode</span><kbd>C</kbd><span>Close panel or selection</span><kbd>Esc</kbd><span>Move through connections</span><kbd>Arrow keys</kbd></div></div></div>
+        <div class="node-menu hidden" id="node-menu" role="menu"><button data-node-action="inspect" type="button"><i data-lucide="panel-right-open"></i> Inspect entity</button><button data-node-action="expand" type="button"><i data-lucide="unfold-horizontal"></i> Expand connections</button><button data-node-action="ask" type="button"><i data-lucide="sparkles"></i> Ask about entity</button><button data-node-action="compare" type="button"><i data-lucide="git-compare-arrows"></i> Add to comparison</button><button data-node-action="focus" type="button"><i data-lucide="scan"></i> Focus neighborhood</button></div>
+        <div class="toast-region" id="toast-region" aria-live="polite" aria-atomic="true"></div>
     </div>
 
-    <script src="/static/js/graph.js?v=20260922-2"></script>
-    <script src="/static/js/main.js?v=20260922-4"></script>
-    <script>
-        lucide.createIcons();
-    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="{{ url_for('static', filename='js/graph.js') }}?v=20260924-2"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}?v=20260924-2"></script>
 </body>
-
 </html>

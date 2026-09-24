@@ -182,9 +182,16 @@ def expand_graph_endpoint():
             "group": target_node_obj.group
         }
         
-        # Call Gemini Service
+        # Call Gemini Service. Expansion is optional enrichment, so a temporary
+        # model outage must not turn a healthy saved graph into an error state.
         original_data = {"nodes": nodes, "links": links}
-        new_data = expand_graph(original_data, target_node_dict)
+        try:
+            new_data = expand_graph(original_data, target_node_dict)
+            degraded = False
+        except RuntimeError as model_error:
+            app.logger.warning("AI graph expansion unavailable: %s", model_error)
+            new_data = {"nodes": [], "links": []}
+            degraded = True
         
         # Save new nodes and links
         for n in new_data['nodes']:
@@ -202,7 +209,14 @@ def expand_graph_endpoint():
                 )
                 db.session.add(node)
                 
+        existing_links = {
+            (link.source, link.target, link.relation)
+            for link in session.links
+        }
         for l in new_data['links']:
+            key = (l['source'], l['target'], l['relation'])
+            if key in existing_links:
+                continue
             link = Link(
                 session_id=session.id,
                 source=l['source'],
@@ -210,10 +224,11 @@ def expand_graph_endpoint():
                 relation=l['relation']
             )
             db.session.add(link)
+            existing_links.add(key)
             
         db.session.commit()
         
-        return jsonify(new_data)
+        return jsonify({**new_data, "degraded": degraded})
         
     except Exception as e:
         db.session.rollback()
